@@ -51,10 +51,12 @@
   input[type="radio"], input[type="checkbox"]{ accent-color:#B0202E; }
   @media print {
     body *{ visibility:hidden; }
-    #hojaQr, #hojaQr *{ visibility:visible; }
-    #hojaQr{ position:absolute; top:0; left:0; width:100%; }
+    #hojaQr, #hojaQr *, #hojaTicket, #hojaTicket *{ visibility:visible; }
+    #hojaQr, #hojaTicket{ position:absolute; top:0; left:0; width:100%; }
     .ej-no-print{ display:none !important; }
   }
+  .ej-mesa-tile{ transition: transform .1s; }
+  .ej-mesa-tile:active{ transform: scale(.95); }
 </style>
 </head>
 <body class="font-body text-jackson-negro min-h-screen pb-10">
@@ -107,7 +109,7 @@
   </header>
 
   <!-- ==========================================================
-       TAB: MESAS (tablero en tiempo real)
+       TAB: MESAS — plano del salón (tablero en tiempo real)
   ========================================================== -->
   <section id="tabMesas" class="px-4 py-5 max-w-6xl mx-auto">
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -129,13 +131,18 @@
       </div>
     </div>
 
-    <div id="gridMesasOcupadas" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-
-    <div class="mt-8">
-      <p class="text-xs font-display font-semibold text-jackson-negro/40 mb-2">MESAS LIBRES</p>
-      <div id="listaMesasLibres" class="flex flex-wrap gap-2"></div>
+    <!-- Leyenda de colores del plano -->
+    <div class="flex flex-wrap gap-4 mb-4 text-xs text-jackson-negro/60">
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-white border-2 border-jackson-negro/15 inline-block"></span> Libre</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span> Tienen algo por servir</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-jackson-negro inline-block"></span> Ocupada, ya servida</span>
+      <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-jackson-rojo inline-block"></span> Te están llamando / pidieron la cuenta</span>
     </div>
-    <p class="text-[10px] text-jackson-negro/30 mt-6">Estos totales solo suman las mesas ocupadas en este momento. Al desocupar una mesa, su historial de pedidos y propinas queda guardado en Firestore para tu contabilidad, pero deja de sumarse aquí.</p>
+
+    <!-- Plano: una casilla por mesa, ordenadas por número. Toca una mesa para ver el detalle. -->
+    <div id="planoMesas" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+
+    <p class="text-[10px] text-jackson-negro/30 mt-6">Los totales de arriba solo suman las mesas ocupadas en este momento. Al desocupar una mesa, su historial de pedidos y propinas queda guardado en Firestore para tu contabilidad, pero deja de sumarse aquí.</p>
   </section>
 
   <!-- ==========================================================
@@ -194,12 +201,16 @@
         </div>
         <div>
           <label class="text-xs font-display font-semibold text-jackson-negro/60">Categoría</label>
-          <select id="platoCategoria" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
-            <option value="entrada">Entrada</option>
-            <option value="plato_fuerte">Plato fuerte</option>
-            <option value="bebida">Bebida</option>
-            <option value="postre">Postre</option>
-          </select>
+          <input id="platoCategoria" list="listaCategoriasSugeridas" required placeholder="Ej: Parrillas" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+          <datalist id="listaCategoriasSugeridas">
+            <option value="Entradas"></option>
+            <option value="Parrillas"></option>
+            <option value="Platos fuertes"></option>
+            <option value="Contornos"></option>
+            <option value="Bebidas"></option>
+            <option value="Postres"></option>
+          </datalist>
+          <p class="text-[10px] text-jackson-negro/40 mt-1">Escribe la categoría (puedes elegir una sugerida o crear una nueva). Usa el mismo texto exacto en todos los platos de esa categoría para que se agrupen juntos en el menú.</p>
         </div>
       </div>
       <div>
@@ -222,6 +233,30 @@
       <button class="bg-jackson-rojo text-white font-display font-semibold text-sm px-5 py-3 rounded-xl min-h-[44px]">Guardar</button>
     </div>
   </form>
+</div>
+
+<!-- ============================================================
+     MODAL: DETALLE DE MESA (se abre al tocar una casilla del plano)
+============================================================ -->
+<div id="modalMesa" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 ej-no-print">
+  <div class="absolute inset-0 bg-black/50" data-cerrar="modalMesa"></div>
+  <div class="relative bg-jackson-crema w-full max-w-md rounded-3xl max-h-[88vh] overflow-y-auto">
+    <div id="contenidoModalMesa" class="p-5"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     TIKET DE CIERRE — imprimible / descargable (Ctrl+P → Guardar como PDF)
+============================================================ -->
+<div id="modalTicket" class="hidden fixed inset-0 z-[55] flex items-center justify-center px-4">
+  <div class="absolute inset-0 bg-black/60 ej-no-print" data-cerrar="modalTicket"></div>
+  <div class="relative bg-white w-full max-w-sm rounded-2xl max-h-[88vh] overflow-y-auto">
+    <div id="hojaTicket" class="p-6 font-body text-jackson-negro"></div>
+    <div class="flex gap-2 p-4 pt-0 ej-no-print">
+      <button type="button" data-cerrar="modalTicket" class="flex-1 font-display font-semibold text-sm px-4 py-3 min-h-[44px] border-2 border-jackson-negro/10 rounded-xl">Cerrar</button>
+      <button id="btnImprimirTicket" class="flex-1 bg-jackson-rojo text-white font-display font-semibold text-sm px-4 py-3 rounded-xl min-h-[44px]">🖨️ Imprimir / Descargar</button>
+    </div>
+  </div>
 </div>
 
 <!-- Toast -->
@@ -302,7 +337,6 @@ const rRef = (...seg) => doc(db, "restaurants", RESTAURANT_ID, ...seg);
 const rCol = (...seg) => collection(db, "restaurants", RESTAURANT_ID, ...seg);
 
 const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
-const CATEGORIA_LABEL = { entrada: "Entrada", plato_fuerte: "Plato fuerte", bebida: "Bebida", postre: "Postre" };
 
 /* ------------------------------------------------------------------
    ESTADO
@@ -312,7 +346,8 @@ const state = {
   platos: [],
   pedidos: [],
   solicitudes: [],
-  primerSnapshotSolicitudes: true
+  primerSnapshotSolicitudes: true,
+  mesaAbiertaId: null
 };
 
 /* ------------------------------------------------------------------
@@ -406,24 +441,11 @@ function solicitudesDeSesion(mesaId, sesion) {
 
 function renderMesas() {
   const ocupadas = state.mesas.filter((m) => m.activa);
-  const libres = state.mesas.filter((m) => !m.activa);
-
-  // Ordenar: primero las que tienen algo urgente pendiente (llamar mesero / cuenta)
   const conUrgencia = (m) => solicitudesDeSesion(m.id, m.sesionActual)
     .some((s) => s.estado === "pendiente" && (s.tipo === "llamar_mesero" || s.tipo === "pedir_cuenta"));
-  ocupadas.sort((a, b) => (conUrgencia(b) ? 1 : 0) - (conUrgencia(a) ? 1 : 0) || (Number(a.numero) - Number(b.numero)));
 
-  document.getElementById("gridMesasOcupadas").innerHTML = ocupadas.map(tarjetaMesa).join("") ||
-    `<p class="text-sm text-jackson-negro/40 col-span-full py-8 text-center">No hay mesas ocupadas en este momento.</p>`;
-
-  document.getElementById("listaMesasLibres").innerHTML = libres.map((m) =>
-    `<span class="bg-white border border-black/5 text-jackson-negro/50 text-sm font-display font-semibold px-4 py-2 rounded-xl">Mesa ${m.numero}</span>`
-  ).join("") || `<span class="text-sm text-jackson-negro/30">Todas las mesas están ocupadas.</span>`;
-
-  // Stats
   document.getElementById("statOcupadas").textContent = ocupadas.length;
-  const urgentes = ocupadas.filter(conUrgencia).length;
-  document.getElementById("statUrgentes").textContent = urgentes;
+  document.getElementById("statUrgentes").textContent = ocupadas.filter(conUrgencia).length;
   const totalPorCobrar = ocupadas.reduce((acc, m) => acc + pedidosDeSesion(m.id, m.sesionActual).reduce((a, p) => a + (p.total || 0), 0), 0);
   document.getElementById("statPorCobrar").textContent = fmtMoney(totalPorCobrar);
   const totalPropinas = ocupadas.reduce((acc, m) => {
@@ -432,14 +454,73 @@ function renderMesas() {
   }, 0);
   document.getElementById("statPropinas").textContent = fmtMoney(totalPropinas);
 
-  adjuntarEventosMesas();
+  renderPlanoMesas();
+  refrescarModalMesa();
 }
 
 const PASOS_ESTADO = ["nuevo", "en_preparacion", "listo", "entregado"];
 const PASO_LABEL = { nuevo: "Recibido", en_preparacion: "En preparación", listo: "Listo", entregado: "Entregado", pagado: "Pagado" };
 const PASO_SIGUIENTE = { nuevo: "en_preparacion", en_preparacion: "listo", listo: "entregado" };
 
-function tarjetaMesa(m) {
+/* ------------------------------------------------------------------
+   PLANO DEL SALÓN: una casilla grande y tocable por mesa, pensado para
+   tablet. El color dice todo de un vistazo:
+   blanco = libre · verde = tienen algo por servir · negro = ocupada y
+   ya servida · el aro/insignia rojo se superpone cuando llaman o piden
+   la cuenta, sin importar el color de fondo.
+------------------------------------------------------------------ */
+function renderPlanoMesas() {
+  const cont = document.getElementById("planoMesas");
+  cont.innerHTML = state.mesas.map(tileMesa).join("") ||
+    `<p class="text-sm text-jackson-negro/40 col-span-full py-8 text-center">Todavía no has agregado mesas. Ve a la pestaña "Códigos QR" para crearlas.</p>`;
+  cont.querySelectorAll("[data-mesa]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirDetalleMesa(btn.dataset.mesa));
+  });
+}
+
+function tileMesa(m) {
+  const pedidos = pedidosDeSesion(m.id, m.sesionActual);
+  const solicitudes = solicitudesDeSesion(m.id, m.sesionActual);
+  const llamando = solicitudes.some((s) => s.tipo === "llamar_mesero" && s.estado === "pendiente");
+  const pidioCuenta = solicitudes.some((s) => s.tipo === "pedir_cuenta" && s.estado === "pendiente");
+  const urgente = llamando || pidioCuenta;
+  const porServir = pedidos.filter((p) => p.estado !== "entregado" && p.estado !== "pagado").length;
+
+  let color = "bg-white border-2 border-jackson-negro/15 text-jackson-negro/40"; // libre
+  if (m.activa) {
+    color = porServir > 0
+      ? "bg-emerald-500 border-2 border-emerald-500 text-white"
+      : "bg-jackson-negro border-2 border-jackson-negro text-white";
+  }
+
+  return `
+  <button data-mesa="${m.id}" class="ej-mesa-tile relative aspect-square rounded-2xl flex flex-col items-center justify-center ${color} ${urgente ? "ring-4 ring-jackson-rojo" : ""}">
+    ${urgente ? `<span class="ej-pulso absolute -top-2 -right-2 bg-jackson-rojo text-white text-xs w-7 h-7 rounded-full flex items-center justify-center shadow">${llamando ? "🔔" : "🧾"}</span>` : ""}
+    <span class="font-display font-extrabold text-2xl leading-none">${m.numero}</span>
+    <span class="text-[10px] mt-1.5 font-display font-semibold ${m.activa ? "opacity-90" : "opacity-60"}">${!m.activa ? "Libre" : (porServir > 0 ? porServir + " por servir" : "Servido")}</span>
+  </button>`;
+}
+
+/* ------------------------------------------------------------------
+   DETALLE DE MESA (modal que se abre al tocar una casilla del plano)
+------------------------------------------------------------------ */
+function abrirDetalleMesa(mesaId) {
+  state.mesaAbiertaId = mesaId;
+  refrescarModalMesa();
+  document.getElementById("modalMesa").classList.remove("hidden");
+}
+
+function refrescarModalMesa() {
+  if (!state.mesaAbiertaId) return;
+  const modal = document.getElementById("modalMesa");
+  if (modal.classList.contains("hidden")) return;
+  const mesa = state.mesas.find((m) => m.id === state.mesaAbiertaId);
+  if (!mesa) { modal.classList.add("hidden"); state.mesaAbiertaId = null; return; }
+  document.getElementById("contenidoModalMesa").innerHTML = contenidoDetalleMesa(mesa);
+  adjuntarEventosDetalle();
+}
+
+function contenidoDetalleMesa(m) {
   const pedidos = pedidosDeSesion(m.id, m.sesionActual);
   const solicitudes = solicitudesDeSesion(m.id, m.sesionActual);
   const llamando = solicitudes.find((s) => s.tipo === "llamar_mesero" && s.estado === "pendiente");
@@ -447,54 +528,62 @@ function tarjetaMesa(m) {
   const extras = solicitudes.filter((s) => s.tipo === "pedir_extra" && s.estado === "pendiente");
   const propina = [...solicitudes].reverse().find((s) => s.tipo === "propina_calificacion");
   const total = pedidos.reduce((a, p) => a + (p.total || 0), 0);
-  const urgente = llamando || pidioCuenta;
 
   return `
-  <div class="bg-white rounded-2xl p-4 ${urgente ? "ring-2 ring-jackson-rojo" : ""}" data-mesa="${m.id}">
-    <div class="flex items-center justify-between mb-3">
-      <p class="font-display font-bold text-lg">Mesa ${m.numero}</p>
-      <div class="flex gap-1.5">
-        ${llamando ? `<button data-atender-solicitud="${llamando.id}" class="ej-pulso bg-jackson-rojo text-white text-[10px] font-display font-bold px-2.5 py-1.5 rounded-full">🔔 LLAMANDO</button>` : ""}
-        ${pidioCuenta ? `<button data-atender-solicitud="${pidioCuenta.id}" class="ej-pulso bg-jackson-negro text-white text-[10px] font-display font-bold px-2.5 py-1.5 rounded-full">🧾 CUENTA</button>` : ""}
-      </div>
+    <div class="flex items-center justify-between mb-4">
+      <div><p class="text-xs text-jackson-negro/40 font-display font-semibold">MESA</p><p class="font-heading text-3xl leading-none">${m.numero}</p></div>
+      <button data-cerrar="modalMesa" class="w-9 h-9 rounded-full bg-white flex items-center justify-center text-lg">✕</button>
     </div>
+
+    ${!m.activa ? `<p class="text-sm text-jackson-negro/50 bg-white rounded-xl p-4">Esta mesa está libre por ahora.</p>` : `
+    ${(llamando || pidioCuenta) ? `<div class="flex flex-wrap gap-1.5 mb-3">
+      ${llamando ? `<button data-atender-solicitud="${llamando.id}" class="ej-pulso bg-jackson-rojo text-white text-[11px] font-display font-bold px-3 py-2 rounded-full min-h-[36px]">🔔 Llamando — tocar para atender</button>` : ""}
+      ${pidioCuenta ? `<button data-atender-solicitud="${pidioCuenta.id}" class="ej-pulso bg-jackson-negro text-white text-[11px] font-display font-bold px-3 py-2 rounded-full min-h-[36px]">🧾 Pidió la cuenta — tocar para atender</button>` : ""}
+    </div>` : ""}
 
     ${pedidos.length ? `<div class="space-y-2 mb-3">
       ${pedidos.map((p) => `
-        <div class="border border-black/5 rounded-xl p-2.5">
-          <ul class="text-xs mb-2">${p.items.map((i) => `<li>${i.cantidad}× ${i.nombre}</li>`).join("")}</ul>
+        <div class="bg-white border border-black/5 rounded-xl p-3">
+          <ul class="text-sm mb-2">${p.items.map((i) => `<li class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></li>`).join("")}</ul>
           <div class="flex items-center justify-between">
-            <span class="text-[10px] text-jackson-negro/40">${fmtMoney(p.total)}</span>
+            <span class="text-xs text-jackson-negro/40">${fmtMoney(p.total)}</span>
             ${p.estado === "entregado" || p.estado === "pagado"
-              ? `<span class="text-[10px] font-display font-semibold text-green-700 bg-green-50 px-2 py-1 rounded-full">✓ Entregado</span>`
-              : `<button data-avanzar-pedido="${p.id}" data-siguiente="${PASO_SIGUIENTE[p.estado] || "entregado"}" class="text-[10px] font-display font-semibold bg-jackson-crema px-2.5 py-1.5 rounded-full">${PASO_LABEL[p.estado] || p.estado} → ${PASO_LABEL[PASO_SIGUIENTE[p.estado] || "entregado"]}</button>`}
+              ? `<span class="text-[11px] font-display font-semibold text-green-700 bg-green-50 px-2.5 py-1.5 rounded-full">✓ Entregado</span>`
+              : `<button data-avanzar-pedido="${p.id}" data-siguiente="${PASO_SIGUIENTE[p.estado] || "entregado"}" class="text-[11px] font-display font-semibold bg-jackson-crema px-3 py-1.5 rounded-full min-h-[36px]">${PASO_LABEL[p.estado] || p.estado} → ${PASO_LABEL[PASO_SIGUIENTE[p.estado] || "entregado"]}</button>`}
           </div>
         </div>`).join("")}
-    </div>` : `<p class="text-xs text-jackson-negro/35 mb-3">Todavía no han pedido nada.</p>`}
+    </div>` : `<p class="text-sm text-jackson-negro/40 bg-white rounded-xl p-4 mb-3">Todavía no han pedido nada.</p>`}
 
     ${extras.length ? `<div class="flex flex-wrap gap-1.5 mb-3">
-      ${extras.map((e) => `<button data-atender-solicitud="${e.id}" class="text-[10px] font-display font-semibold bg-jackson-crema px-2.5 py-1.5 rounded-full">🥤 ${e.detalle} ✓</button>`).join("")}
+      ${extras.map((e) => `<button data-atender-solicitud="${e.id}" class="text-[11px] font-display font-semibold bg-jackson-crema px-3 py-1.5 rounded-full min-h-[36px]">🥤 ${e.detalle} ✓</button>`).join("")}
     </div>` : ""}
 
-    <div class="flex items-center justify-between text-sm mb-3">
-      <div><p class="text-[10px] text-jackson-negro/40">Total a cobrar</p><p class="font-display font-bold">${fmtMoney(total)}</p></div>
-      <div class="text-right"><p class="text-[10px] text-jackson-negro/40">Propina</p><p class="font-display font-bold">${propina ? fmtMoney(propina.detalle?.monto || 0) + (propina.detalle?.calificacion ? " · " + "⭐".repeat(propina.detalle.calificacion) : "") : "—"}</p></div>
+    <div class="bg-white rounded-xl p-4 flex items-center justify-between text-sm mb-3">
+      <div><p class="text-[10px] text-jackson-negro/40">Total a cobrar</p><p class="font-display font-bold text-lg">${fmtMoney(total)}</p></div>
+      <div class="text-right"><p class="text-[10px] text-jackson-negro/40">Propina</p><p class="font-display font-bold text-lg">${propina ? fmtMoney(propina.detalle?.monto || 0) + (propina.detalle?.calificacion ? " · " + "⭐".repeat(propina.detalle.calificacion) : "") : "—"}</p></div>
     </div>
     ${propina?.detalle?.comentario ? `<p class="text-xs italic text-jackson-negro/50 mb-3">"${propina.detalle.comentario}"</p>` : ""}
 
-    <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px]">Mesa desocupada</button>
-  </div>`;
+    <div class="flex flex-col gap-2">
+      <button data-hacer-cierre="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px]">🧾 Hacer cierre (ver / imprimir cuenta)</button>
+      <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px]">Mesa desocupada</button>
+    </div>
+    `}
+  `;
 }
 
-function adjuntarEventosMesas() {
-  document.querySelectorAll("[data-atender-solicitud]").forEach((btn) => {
+function adjuntarEventosDetalle() {
+  document.querySelectorAll("#contenidoModalMesa [data-atender-solicitud]").forEach((btn) => {
     btn.addEventListener("click", () => marcarSolicitudAtendida(btn.dataset.atenderSolicitud));
   });
-  document.querySelectorAll("[data-avanzar-pedido]").forEach((btn) => {
+  document.querySelectorAll("#contenidoModalMesa [data-avanzar-pedido]").forEach((btn) => {
     btn.addEventListener("click", () => avanzarEstadoPedido(btn.dataset.avanzarPedido, btn.dataset.siguiente));
   });
-  document.querySelectorAll("[data-desocupar]").forEach((btn) => {
+  document.querySelectorAll("#contenidoModalMesa [data-desocupar]").forEach((btn) => {
     btn.addEventListener("click", () => desocuparMesa(btn.dataset.desocupar));
+  });
+  document.querySelectorAll("#contenidoModalMesa [data-hacer-cierre]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirTicket(btn.dataset.hacerCierre));
   });
 }
 
@@ -521,7 +610,61 @@ async function desocuparMesa(mesaId) {
   batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null });
   await batch.commit();
   mostrarToast(`Mesa ${mesa.numero} lista para el próximo cliente`);
+
+  if (state.mesaAbiertaId === mesaId) {
+    document.getElementById("modalMesa").classList.add("hidden");
+    state.mesaAbiertaId = null;
+  }
 }
+
+/* ------------------------------------------------------------------
+   TIKET DE CIERRE — combina todos los pedidos de la sesión en una sola
+   cuenta imprimible/descargable (Ctrl+P → "Guardar como PDF" también
+   sirve como descarga, sin necesitar una librería aparte).
+------------------------------------------------------------------ */
+function abrirTicket(mesaId) {
+  const mesa = state.mesas.find((m) => m.id === mesaId);
+  if (!mesa) return;
+  const pedidos = pedidosDeSesion(mesaId, mesa.sesionActual);
+  const solicitudes = solicitudesDeSesion(mesaId, mesa.sesionActual);
+  const propina = [...solicitudes].reverse().find((s) => s.tipo === "propina_calificacion");
+
+  // Junta los items de todos los pedidos de la sesión en una sola cuenta
+  const itemsCombinados = {};
+  pedidos.forEach((p) => (p.items || []).forEach((i) => {
+    const clave = i.platoId || i.nombre;
+    if (!itemsCombinados[clave]) itemsCombinados[clave] = { nombre: i.nombre, cantidad: 0, precio: i.precio };
+    itemsCombinados[clave].cantidad += i.cantidad;
+  }));
+  const items = Object.values(itemsCombinados);
+  const subtotal = pedidos.reduce((a, p) => a + (p.total || 0), 0);
+  const fecha = new Date().toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" });
+
+  document.getElementById("hojaTicket").innerHTML = `
+    <div class="text-center mb-4">
+      <p class="font-heading text-2xl">El Jackson</p>
+      <p class="text-xs text-jackson-negro/50">${fecha}</p>
+      <p class="text-sm font-display font-semibold mt-1">Mesa ${mesa.numero}</p>
+    </div>
+    <div class="border-t border-dashed border-jackson-negro/30 my-3"></div>
+    <table class="w-full text-sm mb-1">
+      ${items.length ? items.map((i) => `
+        <tr>
+          <td class="py-1 align-top pr-1">${i.cantidad}×</td>
+          <td class="py-1">${i.nombre}</td>
+          <td class="py-1 text-right whitespace-nowrap">${fmtMoney(i.precio * i.cantidad)}</td>
+        </tr>`).join("") : `<tr><td class="py-2 text-jackson-negro/40">Sin pedidos registrados</td></tr>`}
+    </table>
+    <div class="border-t border-dashed border-jackson-negro/30 my-3"></div>
+    <div class="flex justify-between text-sm mb-1"><span>Subtotal</span><span>${fmtMoney(subtotal)}</span></div>
+    ${propina ? `<div class="flex justify-between text-sm mb-1 text-jackson-negro/50"><span>Propina (informativa)</span><span>${fmtMoney(propina.detalle?.monto || 0)}</span></div>` : ""}
+    <div class="flex justify-between font-display font-bold text-base mt-2 pt-2 border-t border-jackson-negro/20"><span>Total a cobrar</span><span>${fmtMoney(subtotal)}</span></div>
+    <p class="text-center text-[11px] text-jackson-negro/40 mt-5">Este tiket es informativo. El cobro se realiza en efectivo o punto de venta en el local.</p>
+    <p class="text-center text-[11px] text-jackson-negro/30 mt-2">¡Gracias por tu visita!</p>
+  `;
+  document.getElementById("modalTicket").classList.remove("hidden");
+}
+document.getElementById("btnImprimirTicket").addEventListener("click", () => window.print());
 
 /* ------------------------------------------------------------------
    PEDIDOS Y SOLICITUDES (tiempo real, todo el restaurante)
@@ -581,7 +724,7 @@ function renderListaPlatos() {
         <p class="font-display font-semibold">${p.nombre}</p>
         <span class="font-display font-bold text-jackson-rojo text-sm whitespace-nowrap">${fmtMoney(p.precio)}</span>
       </div>
-      <p class="text-[11px] text-jackson-negro/40 mb-2">${CATEGORIA_LABEL[p.categoria] || p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"}</p>
+      <p class="text-[11px] text-jackson-negro/40 mb-2">${p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"}</p>
       <p class="text-xs text-jackson-negro/55 mb-3 line-clamp-2">${p.descripcion || ""}</p>
       <button data-editar-plato="${p.id}" class="w-full border-2 border-jackson-negro/10 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px]">Editar</button>
     </div>`).join("") || `<p class="text-sm text-jackson-negro/40 col-span-full py-6 text-center">Todavía no has agregado platos. Crea el primero con "+ Nuevo plato".</p>`;
@@ -597,7 +740,7 @@ function abrirModalPlato(plato) {
   document.getElementById("platoNombre").value = plato?.nombre || "";
   document.getElementById("platoDescripcion").value = plato?.descripcion || "";
   document.getElementById("platoPrecio").value = plato?.precio ?? "";
-  document.getElementById("platoCategoria").value = plato?.categoria || "entrada";
+  document.getElementById("platoCategoria").value = plato?.categoria || "";
   document.getElementById("platoImagenUrl").value = plato?.imagenUrl || "";
   document.getElementById("platoModeloUrl").value = plato?.modelo3dUrl || "";
   document.getElementById("platoDisponible").checked = plato ? !!plato.disponible : true;
@@ -605,7 +748,16 @@ function abrirModalPlato(plato) {
   document.getElementById("modalPlato").classList.remove("hidden");
 }
 document.getElementById("btnNuevoPlato").addEventListener("click", () => abrirModalPlato(null));
-document.querySelectorAll('[data-cerrar="modalPlato"]').forEach((el) => el.addEventListener("click", () => document.getElementById("modalPlato").classList.add("hidden")));
+
+// Cierre delegado: cubre tanto los botones/backdrops fijos (modalPlato,
+// modalTicket) como los que se re-renderizan dinámicamente dentro del
+// modal de mesa (el ✕ que se dibuja en cada contenidoDetalleMesa()).
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-cerrar]");
+  if (!el) return;
+  document.getElementById(el.dataset.cerrar)?.classList.add("hidden");
+  if (el.dataset.cerrar === "modalMesa") state.mesaAbiertaId = null;
+});
 
 document.getElementById("formPlato").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -614,7 +766,7 @@ document.getElementById("formPlato").addEventListener("submit", async (e) => {
     nombre: document.getElementById("platoNombre").value.trim(),
     descripcion: document.getElementById("platoDescripcion").value.trim(),
     precio: Number(document.getElementById("platoPrecio").value) || 0,
-    categoria: document.getElementById("platoCategoria").value,
+    categoria: document.getElementById("platoCategoria").value.trim(),
     imagenUrl: document.getElementById("platoImagenUrl").value.trim(),
     modelo3dUrl: document.getElementById("platoModeloUrl").value.trim(),
     disponible: document.getElementById("platoDisponible").checked
