@@ -57,6 +57,16 @@
   }
   .ej-mesa-tile{ transition: transform .1s; }
   .ej-mesa-tile:active{ transform: scale(.95); }
+  /* "Salón" del plano: una sala rectangular con textura de piso a cuadros,
+     para que se sienta como el espacio real del restaurante. */
+  .ej-piso{
+    background-image:
+      repeating-linear-gradient(0deg, rgba(17,17,17,.045) 0, rgba(17,17,17,.045) 1px, transparent 1px, transparent 36px),
+      repeating-linear-gradient(90deg, rgba(17,17,17,.045) 0, rgba(17,17,17,.045) 1px, transparent 1px, transparent 36px);
+  }
+  .ej-mesa-envoltorio{ touch-action:none; cursor:grab; }
+  .ej-mesa-envoltorio:active{ cursor:grabbing; }
+  .ej-silla{ position:absolute; width:13px; height:8px; background:rgba(17,17,17,.16); border-radius:3px; }
 </style>
 </head>
 <body class="font-body text-jackson-negro min-h-screen pb-10">
@@ -108,6 +118,14 @@
     </nav>
   </header>
 
+  <!-- Aviso para activar el sonido de las llamadas: los navegadores solo
+       dejan sonar audio después de un primer toque en la pantalla. Si el
+       mesero ya había iniciado sesión antes, la app vuelve a entrar sola
+       (sin ese toque), así que se lo pedimos una vez al abrir. -->
+  <button id="avisoSonido" class="hidden w-full ej-no-print bg-jackson-rojo text-white text-xs font-display font-semibold px-4 py-2.5 text-center">
+    🔔 Toca aquí para activar el sonido de las llamadas de tus mesas
+  </button>
+
   <!-- ==========================================================
        TAB: MESAS — plano del salón (tablero en tiempo real)
   ========================================================== -->
@@ -139,8 +157,14 @@
       <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-jackson-rojo inline-block"></span> Te están llamando / pidieron la cuenta</span>
     </div>
 
-    <!-- Plano: una casilla por mesa, ordenadas por número. Toca una mesa para ver el detalle. -->
-    <div id="planoMesas" class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3"></div>
+    <p class="text-xs text-jackson-negro/40 mb-3">Arrastra cada mesa para acomodarla como en tu salón real. Solo toca una mesa (sin arrastrar) para ver su cuenta y servirle.</p>
+
+    <!-- Salón: sala rectangular con textura de piso. Cada mesa es arrastrable
+         a su posición real; se guarda por mesa en Firestore (posX/posY). -->
+    <div id="salonMesas" class="relative w-full max-w-3xl mx-auto aspect-[4/3] sm:aspect-[16/10] bg-jackson-crema border-4 border-jackson-negro/10 rounded-3xl ej-piso overflow-hidden">
+      <span class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-display font-semibold text-jackson-negro/25 tracking-widest pointer-events-none select-none">🚪 ENTRADA</span>
+      <div id="planoMesas" class="absolute inset-0"></div>
+    </div>
 
     <p class="text-[10px] text-jackson-negro/30 mt-6">Los totales de arriba solo suman las mesas ocupadas en este momento. Al desocupar una mesa, su historial de pedidos y propinas queda guardado en Firestore para tu contabilidad, pero deja de sumarse aquí.</p>
   </section>
@@ -347,7 +371,10 @@ const state = {
   pedidos: [],
   solicitudes: [],
   primerSnapshotSolicitudes: true,
-  mesaAbiertaId: null
+  mesaAbiertaId: null,
+  arrastrandoId: null,
+  audioCtx: null,
+  audioListo: false
 };
 
 /* ------------------------------------------------------------------
@@ -383,6 +410,7 @@ onAuthStateChanged(auth, (user) => {
     document.getElementById("pantallaLogin").classList.add("hidden");
     document.getElementById("app").classList.remove("hidden");
     document.getElementById("emailUsuario").textContent = user.email || "";
+    if (!state.audioListo) document.getElementById("avisoSonido").classList.remove("hidden");
     iniciarSuscripciones();
   } else {
     document.getElementById("app").classList.add("hidden");
@@ -402,10 +430,27 @@ function iniciarSuscripciones() {
 
 /* ------------------------------------------------------------------
    SONIDO Y AVISO DE URGENCIA (llamar mesero / pedir cuenta)
+   Un solo AudioContext reutilizado (no uno nuevo por campanada), activado
+   con el primer toque en la pantalla —requisito de los navegadores para
+   dejar sonar audio— y una campanada que se repite mientras quede una
+   llamada sin atender, para que de verdad "suene" hasta que la vean.
 ------------------------------------------------------------------ */
+function activarSonido() {
+  if (state.audioListo) return;
+  try {
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (state.audioCtx.state === "suspended") state.audioCtx.resume();
+    state.audioListo = true;
+    document.getElementById("avisoSonido")?.classList.add("hidden");
+  } catch (e) { /* seguimos solo con el aviso visual */ }
+}
+document.getElementById("avisoSonido")?.addEventListener("click", activarSonido);
+document.addEventListener("pointerdown", activarSonido, { once: true });
+
 function reproducirBeep() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = state.audioCtx || (state.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+    if (ctx.state === "suspended") ctx.resume();
     [880, 660].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -419,6 +464,14 @@ function reproducirBeep() {
     });
   } catch (e) { /* Audio no disponible, seguimos solo con el aviso visual */ }
 }
+
+// Mientras quede una mesa llamando al mesero (o pidiendo la cuenta) sin
+// atender, repite la campanada cada 15s para que no se pierda en el ajetreo.
+setInterval(() => {
+  const hayLlamadaSinAtender = state.solicitudes.some((s) =>
+    s.estado === "pendiente" && (s.tipo === "llamar_mesero" || s.tipo === "pedir_cuenta"));
+  if (hayLlamadaSinAtender) reproducirBeep();
+}, 15000);
 
 /* ------------------------------------------------------------------
    MESAS
@@ -470,15 +523,31 @@ const PASO_SIGUIENTE = { nuevo: "en_preparacion", en_preparacion: "listo", listo
    la cuenta, sin importar el color de fondo.
 ------------------------------------------------------------------ */
 function renderPlanoMesas() {
+  if (state.arrastrandoId) return; // no interrumpir un arrastre en curso con un re-render
   const cont = document.getElementById("planoMesas");
-  cont.innerHTML = state.mesas.map(tileMesa).join("") ||
-    `<p class="text-sm text-jackson-negro/40 col-span-full py-8 text-center">Todavía no has agregado mesas. Ve a la pestaña "Códigos QR" para crearlas.</p>`;
-  cont.querySelectorAll("[data-mesa]").forEach((btn) => {
-    btn.addEventListener("click", () => abrirDetalleMesa(btn.dataset.mesa));
-  });
+  const total = state.mesas.length;
+  cont.innerHTML = state.mesas.map((m, i) => tileMesa(m, i, total)).join("") ||
+    `<p class="absolute inset-0 flex items-center justify-center text-sm text-jackson-negro/40 text-center px-10">Todavía no has agregado mesas. Ve a la pestaña "Códigos QR" para crearlas.</p>`;
+  cont.querySelectorAll("[data-mesa]").forEach((el) => activarArrastreMesa(el));
 }
 
-function tileMesa(m) {
+// Si la mesa no tiene una posición guardada todavía (posX/posY), le damos una
+// posición automática en filas dentro del salón, para que se vea bien desde
+// el primer momento sin que el mesero tenga que acomodar nada.
+function posicionMesa(m, index, total) {
+  if (typeof m.posX === "number" && typeof m.posY === "number") return { x: m.posX, y: m.posY };
+  const columnas = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(total))));
+  const filas = Math.max(1, Math.ceil(total / columnas));
+  const col = index % columnas;
+  const fila = Math.floor(index / columnas);
+  return {
+    x: ((col + 0.5) / columnas) * 82 + 9,
+    y: ((fila + 0.5) / filas) * 70 + 12
+  };
+}
+
+function tileMesa(m, index, total) {
+  const pos = posicionMesa(m, index, total);
   const pedidos = pedidosDeSesion(m.id, m.sesionActual);
   const solicitudes = solicitudesDeSesion(m.id, m.sesionActual);
   const llamando = solicitudes.some((s) => s.tipo === "llamar_mesero" && s.estado === "pendiente");
@@ -494,11 +563,68 @@ function tileMesa(m) {
   }
 
   return `
-  <button data-mesa="${m.id}" class="ej-mesa-tile relative aspect-square rounded-2xl flex flex-col items-center justify-center ${color} ${urgente ? "ring-4 ring-jackson-rojo" : ""}">
-    ${urgente ? `<span class="ej-pulso absolute -top-2 -right-2 bg-jackson-rojo text-white text-xs w-7 h-7 rounded-full flex items-center justify-center shadow">${llamando ? "🔔" : "🧾"}</span>` : ""}
-    <span class="font-display font-extrabold text-2xl leading-none">${m.numero}</span>
-    <span class="text-[10px] mt-1.5 font-display font-semibold ${m.activa ? "opacity-90" : "opacity-60"}">${!m.activa ? "Libre" : (porServir > 0 ? porServir + " por servir" : "Servido")}</span>
-  </button>`;
+  <div data-mesa="${m.id}" data-x="${pos.x}" data-y="${pos.y}" class="ej-mesa-envoltorio absolute" style="left:${pos.x}%; top:${pos.y}%; transform:translate(-50%,-50%);">
+    <div class="relative w-16 h-16 sm:w-20 sm:h-20">
+      <span class="ej-silla" style="top:-9px; left:50%; transform:translateX(-50%);"></span>
+      <span class="ej-silla" style="bottom:-9px; left:50%; transform:translateX(-50%);"></span>
+      <span class="ej-silla" style="left:-9px; top:50%; transform:translateY(-50%) rotate(90deg);"></span>
+      <span class="ej-silla" style="right:-9px; top:50%; transform:translateY(-50%) rotate(90deg);"></span>
+      <div class="ej-mesa-tile absolute inset-0 rounded-full flex flex-col items-center justify-center select-none ${color} ${urgente ? "ring-4 ring-jackson-rojo" : ""}">
+        ${urgente ? `<span class="ej-pulso absolute -top-1.5 -right-1.5 bg-jackson-rojo text-white text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow">${llamando ? "🔔" : "🧾"}</span>` : ""}
+        <span class="font-display font-extrabold text-base sm:text-lg leading-none">${m.numero}</span>
+        <span class="text-[8px] sm:text-[9px] mt-0.5 font-display font-semibold text-center leading-tight ${m.activa ? "opacity-90" : "opacity-60"}">${!m.activa ? "Libre" : (porServir > 0 ? porServir + " x servir" : "Servido")}</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+// Arrastrar para acomodar la mesa como está en el salón real; un toque sin
+// arrastre (menos de 12px de movimiento) abre el detalle de la mesa.
+function activarArrastreMesa(el) {
+  const salon = document.getElementById("salonMesas");
+  let inicio = null;
+  let arrastrando = false;
+
+  el.addEventListener("pointerdown", (e) => {
+    inicio = { x: e.clientX, y: e.clientY };
+    arrastrando = false;
+    state.arrastrandoId = el.dataset.mesa;
+    el.setPointerCapture(e.pointerId);
+  });
+
+  el.addEventListener("pointermove", (e) => {
+    if (!inicio) return;
+    const dx = e.clientX - inicio.x, dy = e.clientY - inicio.y;
+    if (!arrastrando && Math.hypot(dx, dy) > 12) arrastrando = true;
+    if (!arrastrando) return;
+    const rect = salon.getBoundingClientRect();
+    let x = ((e.clientX - rect.left) / rect.width) * 100;
+    let y = ((e.clientY - rect.top) / rect.height) * 100;
+    x = Math.max(6, Math.min(94, x));
+    y = Math.max(8, Math.min(92, y));
+    el.style.left = x + "%";
+    el.style.top = y + "%";
+    el.dataset.x = x;
+    el.dataset.y = y;
+  });
+
+  const terminar = async () => {
+    if (!inicio) return;
+    const fueArrastre = arrastrando;
+    const mesaId = el.dataset.mesa;
+    inicio = null;
+    arrastrando = false;
+    state.arrastrandoId = null;
+    if (fueArrastre) {
+      try {
+        await updateDoc(rRef("mesas", mesaId), { posX: Number(el.dataset.x), posY: Number(el.dataset.y) });
+      } catch (err) { console.error("No se pudo guardar la posición de la mesa:", err); }
+    } else {
+      abrirDetalleMesa(mesaId);
+    }
+  };
+  el.addEventListener("pointerup", terminar);
+  el.addEventListener("pointercancel", () => { inicio = null; arrastrando = false; state.arrastrandoId = null; });
 }
 
 /* ------------------------------------------------------------------
