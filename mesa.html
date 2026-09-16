@@ -71,17 +71,19 @@
   <div class="text-center">
     <p class="font-heading text-jackson-blanco text-3xl tracking-wide mb-4">El Jackson</p>
     <div class="w-8 h-8 border-4 border-jackson-rojo border-t-transparent rounded-full animate-spin mx-auto"></div>
+    <p id="cargaHint" class="hidden text-white/40 text-xs mt-5 max-w-[240px] mx-auto leading-relaxed">Esto está tardando más de lo normal. Sigue esperando o revisa tu conexión a internet.</p>
   </div>
 </div>
 
 <!-- ============================================================
-     PANTALLA: MESA NO ENCONTRADA (caso borde)
+     PANTALLA: MESA NO ENCONTRADA / ERROR DE CONEXIÓN (caso borde)
 ============================================================ -->
 <div id="pantallaError" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-jackson-negro px-8">
   <div class="text-center max-w-xs">
-    <p class="text-5xl mb-5">🔎</p>
-    <h1 class="font-heading text-jackson-blanco text-2xl mb-3">Mesa no encontrada</h1>
-    <p class="text-white/60 text-sm leading-relaxed">Este enlace no corresponde a ninguna mesa activa de El Jackson. Pide ayuda a un mesero para que te ubique en tu mesa.</p>
+    <p id="iconoError" class="text-5xl mb-5">🔎</p>
+    <h1 id="tituloError" class="font-heading text-jackson-blanco text-2xl mb-3">Mesa no encontrada</h1>
+    <p id="mensajeError" class="text-white/60 text-sm leading-relaxed">Este enlace no corresponde a ninguna mesa activa de El Jackson. Pide ayuda a un mesero para que te ubique en tu mesa.</p>
+    <button id="btnReintentarError" class="hidden mt-6 bg-jackson-rojo text-white font-display font-semibold text-sm px-5 py-3 rounded-xl min-h-[44px]">Reintentar</button>
   </div>
 </div>
 
@@ -235,12 +237,12 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBN3rDIuEbUtt9x4VtMIu9j7b2T_rpfIHU",
-    authDomain: "eljackson-e6b93.firebaseapp.com",
-    projectId: "eljackson-e6b93",
-    storageBucket: "eljackson-e6b93.firebasestorage.app",
-    messagingSenderId: "540481247962",
-    appId: "1:540481247962:web:74d64f732c91a2e37423e3""
+  apiKey: "AIzaSyBN3rDIuEbUtt9x4VtMIu9j7b2T_rpfIHU",
+  authDomain: "eljackson-e6b93.firebaseapp.com",
+  projectId: "eljackson-e6b93",
+  storageBucket: "eljackson-e6b93.firebasestorage.app",
+  messagingSenderId: "540481247962",
+  appId: "1:540481247962:web:74d64f732c91a2e37423e3"
 };
 const RESTAURANT_ID = "el-jackson"; // ID del documento del restaurante en Firestore
 
@@ -283,54 +285,81 @@ const state = {
 /* ------------------------------------------------------------------
    ARRANQUE: valida la mesa a partir de ?mesa=N
 ------------------------------------------------------------------ */
+// Evita que la app se quede "pegada" en la pantalla de carga para siempre si
+// la conexión a internet falla o se pone muy lenta a medio camino.
+function conLimiteDeTiempo(promesa, ms = 15000) {
+  return Promise.race([
+    promesa,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("tiempo_agotado")), ms))
+  ]);
+}
+
 async function iniciar() {
   const params = new URLSearchParams(location.search);
   const mesaId = params.get("mesa") || sessionStorage.getItem("ej_mesaId");
 
   if (!mesaId) return mostrarErrorMesa();
 
-  let snap;
+  // Si tarda más de la cuenta, avisamos que siga esperando en vez de dejar
+  // la pantalla en silencio (muy común con datos móviles inestables).
+  const avisoLento = setTimeout(() => document.getElementById("cargaHint")?.classList.remove("hidden"), 6000);
+
   try {
-    snap = await getDoc(rRef("mesas", String(mesaId)));
+    const snap = await conLimiteDeTiempo(getDoc(rRef("mesas", String(mesaId))));
+    if (!snap.exists()) { clearTimeout(avisoLento); return mostrarErrorMesa(); }
+
+    const mesa = snap.data();
+    state.mesaId = String(mesaId);
+    state.mesaNumero = mesa.numero ?? mesaId;
+    sessionStorage.setItem("ej_mesaId", state.mesaId);
+
+    let sesion = mesa.sesionActual;
+    if (!sesion) {
+      sesion = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+      await conLimiteDeTiempo(updateDoc(rRef("mesas", state.mesaId), { activa: true, sesionActual: sesion }));
+    }
+    state.sesion = sesion;
+
+    // Si el mesero "desocupa" la mesa mientras el cliente sigue con la página
+    // abierta (ya se fue / cambió de sesión), refrescamos para no arrastrar
+    // pedidos de una sesión vieja hacia la mesa siguiente.
+    onSnapshot(rRef("mesas", state.mesaId), (s) => {
+      const d = s.data();
+      if (d && state.sesion && d.sesionActual !== state.sesion) location.reload();
+    });
+
+    document.getElementById("numeroMesaTxt").textContent = state.mesaNumero;
+    document.getElementById("numeroMesaPortada").textContent = state.mesaNumero;
+
+    cargarCarritoLocal();
+    suscribirPlatos();
+    suscribirPedidos();
+    suscribirSolicitudes();
+    clearTimeout(avisoLento);
+    mostrarApp();
   } catch (e) {
-    console.error("Error validando mesa:", e);
-    return mostrarErrorMesa();
+    clearTimeout(avisoLento);
+    console.error("Error iniciando la mesa:", e);
+    mostrarErrorMesa({
+      icono: "📶",
+      titulo: "No se pudo conectar",
+      mensaje: "Tu conexión a internet está fallando o tardando demasiado. Revisa el wifi/datos e intenta de nuevo.",
+      reintentar: true
+    });
   }
-  if (!snap.exists()) return mostrarErrorMesa();
-
-  const mesa = snap.data();
-  state.mesaId = String(mesaId);
-  state.mesaNumero = mesa.numero ?? mesaId;
-  sessionStorage.setItem("ej_mesaId", state.mesaId);
-
-  let sesion = mesa.sesionActual;
-  if (!sesion) {
-    sesion = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
-    await updateDoc(rRef("mesas", state.mesaId), { activa: true, sesionActual: sesion });
-  }
-  state.sesion = sesion;
-
-  // Si el mesero "desocupa" la mesa mientras el cliente sigue con la página
-  // abierta (ya se fue / cambió de sesión), refrescamos para no arrastrar
-  // pedidos de una sesión vieja hacia la mesa siguiente.
-  onSnapshot(rRef("mesas", state.mesaId), (s) => {
-    const d = s.data();
-    if (d && state.sesion && d.sesionActual !== state.sesion) location.reload();
-  });
-
-  document.getElementById("numeroMesaTxt").textContent = state.mesaNumero;
-  document.getElementById("numeroMesaPortada").textContent = state.mesaNumero;
-
-  cargarCarritoLocal();
-  suscribirPlatos();
-  suscribirPedidos();
-  suscribirSolicitudes();
-  mostrarApp();
 }
 
-function mostrarErrorMesa() {
+function mostrarErrorMesa(opts) {
   document.getElementById("pantallaCarga").classList.add("hidden");
   document.getElementById("pantallaError").classList.remove("hidden");
+  if (opts) {
+    if (opts.icono) document.getElementById("iconoError").textContent = opts.icono;
+    if (opts.titulo) document.getElementById("tituloError").textContent = opts.titulo;
+    if (opts.mensaje) document.getElementById("mensajeError").textContent = opts.mensaje;
+    const btn = document.getElementById("btnReintentarError");
+    btn.classList.toggle("hidden", !opts.reintentar);
+    if (opts.reintentar) btn.onclick = () => location.reload();
+  }
 }
 function mostrarApp() {
   document.getElementById("pantallaCarga").classList.add("hidden");
