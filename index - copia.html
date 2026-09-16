@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>El Jackson — Panel del mesero</title>
+<meta name="description" content="Tablero en tiempo real de mesas, pedidos y solicitudes de El Jackson">
+
+<!-- ============================================================
+     TAILWIND (CDN, sin build) + misma identidad visual de mesa.html
+============================================================ -->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          jackson: {
+            rojo: '#B0202E',
+            rojoOscuro: '#8A1923',
+            negro: '#111111',
+            crema: '#F4F1EF',
+            blanco: '#FFFFFF'
+          }
+        },
+        fontFamily: {
+          heading: ['"Playfair Display"', 'serif'],
+          display: ['"Space Grotesk"', 'sans-serif'],
+          body: ['"Manrope"', 'sans-serif']
+        }
+      }
+    }
+  };
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Generador de códigos QR (para imprimir uno por mesa) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.js"></script>
+
+<style>
+  html,body{ background:#F4F1EF; }
+  ::-webkit-scrollbar{ width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb{ background:#11111122; border-radius:8px; }
+  @keyframes ejPulso{ 0%,100%{opacity:1} 50%{opacity:.35} }
+  .ej-pulso{ animation: ejPulso 1s ease-in-out infinite; }
+  @keyframes ejShake{ 0%,100%{transform:rotate(0)} 25%{transform:rotate(-8deg)} 75%{transform:rotate(8deg)} }
+  .ej-shake{ animation: ejShake .4s ease-in-out infinite; }
+  .ej-tab-activo{ background:#B0202E !important; color:#fff !important; }
+  input[type="radio"], input[type="checkbox"]{ accent-color:#B0202E; }
+  @media print {
+    body *{ visibility:hidden; }
+    #hojaQr, #hojaQr *{ visibility:visible; }
+    #hojaQr{ position:absolute; top:0; left:0; width:100%; }
+    .ej-no-print{ display:none !important; }
+  }
+</style>
+</head>
+<body class="font-body text-jackson-negro min-h-screen pb-10">
+
+<!-- ============================================================
+     PANTALLA DE LOGIN
+============================================================ -->
+<div id="pantallaLogin" class="fixed inset-0 z-[70] flex items-center justify-center bg-jackson-negro px-6">
+  <div class="w-full max-w-sm">
+    <p class="font-heading text-jackson-blanco text-4xl text-center mb-1">El Jackson</p>
+    <p class="text-white/40 text-center text-sm mb-8 font-display">Panel del personal</p>
+    <form id="formLogin" class="bg-white rounded-3xl p-6 space-y-3">
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Correo</label>
+        <input id="loginEmail" type="email" required autocomplete="username" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-3 mt-1 min-h-[44px]" placeholder="mesero@eljackson.com">
+      </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Contraseña</label>
+        <input id="loginPass" type="password" required autocomplete="current-password" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-3 mt-1 min-h-[44px]" placeholder="••••••••">
+      </div>
+      <p id="loginError" class="hidden text-jackson-rojo text-xs font-medium"></p>
+      <button type="submit" id="btnLogin" class="w-full bg-jackson-rojo hover:bg-jackson-rojoOscuro text-white font-display font-semibold py-3.5 rounded-xl min-h-[44px] mt-2">Entrar</button>
+    </form>
+    <p class="text-white/30 text-[11px] text-center mt-6">Los usuarios del personal se crean desde Firebase Console → Authentication.</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP PRINCIPAL (dashboard)
+============================================================ -->
+<div id="app" class="hidden">
+
+  <!-- Encabezado / navegación -->
+  <header class="sticky top-0 z-30 bg-jackson-negro text-jackson-blanco">
+    <div class="px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <p class="font-heading text-xl leading-none">El Jackson</p>
+        <span class="text-[10px] font-display font-semibold bg-white/10 px-2 py-1 rounded-full">Panel del mesero</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="emailUsuario" class="text-xs text-white/40 hidden sm:inline"></span>
+        <button id="btnLogout" class="text-xs font-display font-semibold border border-white/20 rounded-full px-3 py-2 min-h-[36px]">Salir</button>
+      </div>
+    </div>
+    <nav class="flex gap-1 px-4 pb-2 ej-no-print">
+      <button data-tab="mesas" class="ej-tab-btn ej-tab-activo px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10">Mesas</button>
+      <button data-tab="menu" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10">Menú</button>
+      <button data-tab="qr" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10">Códigos QR</button>
+    </nav>
+  </header>
+
+  <!-- ==========================================================
+       TAB: MESAS (tablero en tiempo real)
+  ========================================================== -->
+  <section id="tabMesas" class="px-4 py-5 max-w-6xl mx-auto">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      <div class="bg-white rounded-2xl p-4">
+        <p class="text-2xl font-display font-bold" id="statOcupadas">0</p>
+        <p class="text-xs text-jackson-negro/50">Mesas ocupadas</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4">
+        <p class="text-2xl font-display font-bold text-jackson-rojo" id="statUrgentes">0</p>
+        <p class="text-xs text-jackson-negro/50">Solicitudes urgentes</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4">
+        <p class="text-2xl font-display font-bold" id="statPorCobrar">$0.00</p>
+        <p class="text-xs text-jackson-negro/50">Total por cobrar</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4">
+        <p class="text-2xl font-display font-bold" id="statPropinas">$0.00</p>
+        <p class="text-xs text-jackson-negro/50">Propinas (mesas activas)</p>
+      </div>
+    </div>
+
+    <div id="gridMesasOcupadas" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+    <div class="mt-8">
+      <p class="text-xs font-display font-semibold text-jackson-negro/40 mb-2">MESAS LIBRES</p>
+      <div id="listaMesasLibres" class="flex flex-wrap gap-2"></div>
+    </div>
+    <p class="text-[10px] text-jackson-negro/30 mt-6">Estos totales solo suman las mesas ocupadas en este momento. Al desocupar una mesa, su historial de pedidos y propinas queda guardado en Firestore para tu contabilidad, pero deja de sumarse aquí.</p>
+  </section>
+
+  <!-- ==========================================================
+       TAB: MENÚ (CRUD de platos)
+  ========================================================== -->
+  <section id="tabMenu" class="hidden px-4 py-5 max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-display font-bold text-lg">Gestor de menú</h2>
+      <button id="btnNuevoPlato" class="bg-jackson-rojo text-white font-display font-semibold text-sm px-4 py-2.5 rounded-xl min-h-[44px]">+ Nuevo plato</button>
+    </div>
+    <div id="listaPlatos" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+  </section>
+
+  <!-- ==========================================================
+       TAB: CÓDIGOS QR
+  ========================================================== -->
+  <section id="tabQr" class="hidden px-4 py-5 max-w-5xl mx-auto">
+    <div class="bg-white rounded-2xl p-5 mb-6 ej-no-print">
+      <h2 class="font-display font-bold text-lg mb-3">Mesas del restaurante</h2>
+      <form id="formNuevaMesa" class="flex gap-2 mb-4">
+        <input id="inputNuevaMesa" type="number" min="1" placeholder="Número de mesa" class="flex-1 border-2 border-jackson-negro/10 rounded-xl px-3 py-3 min-h-[44px]" required>
+        <button class="bg-jackson-negro text-white font-display font-semibold px-4 rounded-xl min-h-[44px]">Agregar mesa</button>
+      </form>
+      <div id="listaMesasAdmin" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <div class="flex items-center justify-between mb-4 ej-no-print">
+      <h2 class="font-display font-bold text-lg">Códigos QR para imprimir</h2>
+      <button id="btnImprimirQr" class="bg-jackson-negro text-white font-display font-semibold text-sm px-4 py-2.5 rounded-xl min-h-[44px]">🖨️ Imprimir todos</button>
+    </div>
+    <div id="hojaQr" class="grid grid-cols-2 sm:grid-cols-3 gap-6"></div>
+  </section>
+</div>
+
+<!-- ============================================================
+     MODAL: EDITAR / CREAR PLATO
+============================================================ -->
+<div id="modalPlato" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4">
+  <div class="absolute inset-0 bg-black/50" data-cerrar="modalPlato"></div>
+  <form id="formPlato" class="relative bg-white w-full max-w-lg rounded-3xl p-6 max-h-[90vh] overflow-y-auto">
+    <h3 class="font-display font-bold text-lg mb-4" id="tituloModalPlato">Nuevo plato</h3>
+    <input type="hidden" id="platoId">
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Nombre</label>
+        <input id="platoNombre" required class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+      </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Descripción corta</label>
+        <textarea id="platoDescripcion" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 h-16 resize-none"></textarea>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-display font-semibold text-jackson-negro/60">Precio ($)</label>
+          <input id="platoPrecio" type="number" step="0.01" min="0" required class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+        </div>
+        <div>
+          <label class="text-xs font-display font-semibold text-jackson-negro/60">Categoría</label>
+          <select id="platoCategoria" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+            <option value="entrada">Entrada</option>
+            <option value="plato_fuerte">Plato fuerte</option>
+            <option value="bebida">Bebida</option>
+            <option value="postre">Postre</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">URL de imagen (foto de respaldo)</label>
+        <input id="platoImagenUrl" type="url" placeholder="https://..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+      </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">URL del modelo 3D (.glb)</label>
+        <input id="platoModeloUrl" type="url" placeholder="https://... .glb" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+        <p class="text-[10px] text-jackson-negro/40 mt-1">Sin Firebase Storage no hay "subir archivo": exporta el .glb desde tu app de escaneo 3D y súbelo a un hosting de archivos (o a un repositorio en GitHub) para obtener el link. Si lo dejas vacío, se usa un modelo de muestra o la foto de arriba.</p>
+      </div>
+      <label class="flex items-center gap-2 text-sm font-display font-medium">
+        <input id="platoDisponible" type="checkbox" checked> Disponible en el menú
+      </label>
+    </div>
+    <div class="flex gap-2 mt-5">
+      <button type="button" id="btnEliminarPlato" class="hidden text-jackson-rojo font-display font-semibold text-sm px-4 py-3 min-h-[44px]">Eliminar</button>
+      <div class="flex-1"></div>
+      <button type="button" data-cerrar="modalPlato" class="font-display font-semibold text-sm px-4 py-3 min-h-[44px]">Cancelar</button>
+      <button class="bg-jackson-rojo text-white font-display font-semibold text-sm px-5 py-3 rounded-xl min-h-[44px]">Guardar</button>
+    </div>
+  </form>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="hidden fixed bottom-6 left-1/2 z-[80] -translate-x-1/2 bg-jackson-negro text-white text-sm font-display font-medium px-5 py-3 rounded-full shadow-lg whitespace-nowrap"></div>
+
+<!-- Footer -->
+<footer class="text-center text-[11px] text-jackson-negro/35 py-6 px-6 ej-no-print">
+  Sistema hecho por <a href="https://wa.me/584220447096" target="_blank" rel="noopener" class="underline underline-offset-2">Nodo Link</a>
+</footer>
+
+<script type="module">
+/* ==================================================================
+   CONFIGURACIÓN DE FIREBASE — debe ser IDÉNTICA a la de mesa.html
+   1) Firebase Console → Configuración del proyecto → Tus apps → Web
+   2) Copia el objeto de configuración y pégalo aquí abajo
+   3) Activa Authentication → Método de acceso → Correo/contraseña,
+      y crea ahí manualmente los usuarios del personal (mesero, encargado, etc.)
+   4) Activa Firestore Database (modo producción) y pega estas reglas
+      en Firestore → Reglas:
+
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /restaurants/{restaurantId} {
+         allow read: if true;
+         allow write: if request.auth != null;
+
+         match /platos/{platoId} {
+           allow read: if true;
+           allow write: if request.auth != null;
+         }
+         match /mesas/{mesaId} {
+           allow read: if true;
+           // El cliente (sin login) reclama su mesa al escanear el QR y el
+           // mesero la libera al desocuparla: por eso "update" es público.
+           // Crear/eliminar mesas queda reservado al personal.
+           allow update: if true;
+           allow create, delete: if request.auth != null;
+         }
+         match /pedidos/{pedidoId} {
+           allow create: if true;                    // el cliente crea su pedido
+           allow read, update: if request.auth != null; // solo el mesero lee/gestiona
+           allow delete: if false;
+         }
+         match /solicitudes/{solicitudId} {
+           allow create: if true;
+           allow read, update: if request.auth != null;
+           allow delete: if false;
+         }
+       }
+     }
+   }
+================================================================== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
+  setPersistence, browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import {
+  getFirestore, doc, setDoc, updateDoc, deleteDoc, addDoc, collection,
+  onSnapshot, writeBatch
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBN3rDIuEbUtt9x4VtMIu9j7b2T_rpfIHU",
+  authDomain: "eljackson-e6b93.firebaseapp.com",
+  projectId: "eljackson-e6b93",
+  storageBucket: "eljackson-e6b93.firebasestorage.app",
+  messagingSenderId: "540481247962",
+  appId: "1:540481247962:web:74d64f732c91a2e37423e3"
+};
+const RESTAURANT_ID = "el-jackson"; // ID del documento del restaurante en Firestore
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const rRef = (...seg) => doc(db, "restaurants", RESTAURANT_ID, ...seg);
+const rCol = (...seg) => collection(db, "restaurants", RESTAURANT_ID, ...seg);
+
+const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
+const CATEGORIA_LABEL = { entrada: "Entrada", plato_fuerte: "Plato fuerte", bebida: "Bebida", postre: "Postre" };
+
+/* ------------------------------------------------------------------
+   ESTADO
+------------------------------------------------------------------ */
+const state = {
+  mesas: [],
+  platos: [],
+  pedidos: [],
+  solicitudes: [],
+  primerSnapshotSolicitudes: true
+};
+
+/* ------------------------------------------------------------------
+   AUTENTICACIÓN
+------------------------------------------------------------------ */
+const formLogin = document.getElementById("formLogin");
+formLogin.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("loginEmail").value.trim();
+  const pass = document.getElementById("loginPass").value;
+  const errorEl = document.getElementById("loginError");
+  const btn = document.getElementById("btnLogin");
+  errorEl.classList.add("hidden");
+  btn.disabled = true;
+  btn.textContent = "Entrando...";
+  try {
+    await setPersistence(auth, browserLocalPersistence);
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch (err) {
+    console.error(err);
+    errorEl.textContent = "Correo o contraseña incorrectos. Verifica con el encargado.";
+    errorEl.classList.remove("hidden");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Entrar";
+  }
+});
+
+document.getElementById("btnLogout").addEventListener("click", () => signOut(auth));
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    document.getElementById("pantallaLogin").classList.add("hidden");
+    document.getElementById("app").classList.remove("hidden");
+    document.getElementById("emailUsuario").textContent = user.email || "";
+    iniciarSuscripciones();
+  } else {
+    document.getElementById("app").classList.add("hidden");
+    document.getElementById("pantallaLogin").classList.remove("hidden");
+  }
+});
+
+let suscripcionesActivas = false;
+function iniciarSuscripciones() {
+  if (suscripcionesActivas) return;
+  suscripcionesActivas = true;
+  suscribirMesas();
+  suscribirPlatos();
+  suscribirPedidos();
+  suscribirSolicitudes();
+}
+
+/* ------------------------------------------------------------------
+   SONIDO Y AVISO DE URGENCIA (llamar mesero / pedir cuenta)
+------------------------------------------------------------------ */
+function reproducirBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 660].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.18);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.16);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.18);
+      osc.stop(ctx.currentTime + i * 0.18 + 0.17);
+    });
+  } catch (e) { /* Audio no disponible, seguimos solo con el aviso visual */ }
+}
+
+/* ------------------------------------------------------------------
+   MESAS
+------------------------------------------------------------------ */
+function suscribirMesas() {
+  onSnapshot(rCol("mesas"), (snap) => {
+    state.mesas = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (Number(a.numero) || 0) - (Number(b.numero) || 0));
+    renderMesas();
+    renderMesasAdmin();
+  }, (err) => console.error("Error leyendo mesas:", err));
+}
+
+function pedidosDeSesion(mesaId, sesion) {
+  return state.pedidos.filter((p) => p.mesaId === mesaId && p.sesion === sesion);
+}
+function solicitudesDeSesion(mesaId, sesion) {
+  return state.solicitudes.filter((s) => s.mesaId === mesaId && s.sesion === sesion);
+}
+
+function renderMesas() {
+  const ocupadas = state.mesas.filter((m) => m.activa);
+  const libres = state.mesas.filter((m) => !m.activa);
+
+  // Ordenar: primero las que tienen algo urgente pendiente (llamar mesero / cuenta)
+  const conUrgencia = (m) => solicitudesDeSesion(m.id, m.sesionActual)
+    .some((s) => s.estado === "pendiente" && (s.tipo === "llamar_mesero" || s.tipo === "pedir_cuenta"));
+  ocupadas.sort((a, b) => (conUrgencia(b) ? 1 : 0) - (conUrgencia(a) ? 1 : 0) || (Number(a.numero) - Number(b.numero)));
+
+  document.getElementById("gridMesasOcupadas").innerHTML = ocupadas.map(tarjetaMesa).join("") ||
+    `<p class="text-sm text-jackson-negro/40 col-span-full py-8 text-center">No hay mesas ocupadas en este momento.</p>`;
+
+  document.getElementById("listaMesasLibres").innerHTML = libres.map((m) =>
+    `<span class="bg-white border border-black/5 text-jackson-negro/50 text-sm font-display font-semibold px-4 py-2 rounded-xl">Mesa ${m.numero}</span>`
+  ).join("") || `<span class="text-sm text-jackson-negro/30">Todas las mesas están ocupadas.</span>`;
+
+  // Stats
+  document.getElementById("statOcupadas").textContent = ocupadas.length;
+  const urgentes = ocupadas.filter(conUrgencia).length;
+  document.getElementById("statUrgentes").textContent = urgentes;
+  const totalPorCobrar = ocupadas.reduce((acc, m) => acc + pedidosDeSesion(m.id, m.sesionActual).reduce((a, p) => a + (p.total || 0), 0), 0);
+  document.getElementById("statPorCobrar").textContent = fmtMoney(totalPorCobrar);
+  const totalPropinas = ocupadas.reduce((acc, m) => {
+    const propinas = solicitudesDeSesion(m.id, m.sesionActual).filter((s) => s.tipo === "propina_calificacion");
+    return acc + propinas.reduce((a, s) => a + (s.detalle?.monto || 0), 0);
+  }, 0);
+  document.getElementById("statPropinas").textContent = fmtMoney(totalPropinas);
+
+  adjuntarEventosMesas();
+}
+
+const PASOS_ESTADO = ["nuevo", "en_preparacion", "listo", "entregado"];
+const PASO_LABEL = { nuevo: "Recibido", en_preparacion: "En preparación", listo: "Listo", entregado: "Entregado", pagado: "Pagado" };
+const PASO_SIGUIENTE = { nuevo: "en_preparacion", en_preparacion: "listo", listo: "entregado" };
+
+function tarjetaMesa(m) {
+  const pedidos = pedidosDeSesion(m.id, m.sesionActual);
+  const solicitudes = solicitudesDeSesion(m.id, m.sesionActual);
+  const llamando = solicitudes.find((s) => s.tipo === "llamar_mesero" && s.estado === "pendiente");
+  const pidioCuenta = solicitudes.find((s) => s.tipo === "pedir_cuenta" && s.estado === "pendiente");
+  const extras = solicitudes.filter((s) => s.tipo === "pedir_extra" && s.estado === "pendiente");
+  const propina = [...solicitudes].reverse().find((s) => s.tipo === "propina_calificacion");
+  const total = pedidos.reduce((a, p) => a + (p.total || 0), 0);
+  const urgente = llamando || pidioCuenta;
+
+  return `
+  <div class="bg-white rounded-2xl p-4 ${urgente ? "ring-2 ring-jackson-rojo" : ""}" data-mesa="${m.id}">
+    <div class="flex items-center justify-between mb-3">
+      <p class="font-display font-bold text-lg">Mesa ${m.numero}</p>
+      <div class="flex gap-1.5">
+        ${llamando ? `<button data-atender-solicitud="${llamando.id}" class="ej-pulso bg-jackson-rojo text-white text-[10px] font-display font-bold px-2.5 py-1.5 rounded-full">🔔 LLAMANDO</button>` : ""}
+        ${pidioCuenta ? `<button data-atender-solicitud="${pidioCuenta.id}" class="ej-pulso bg-jackson-negro text-white text-[10px] font-display font-bold px-2.5 py-1.5 rounded-full">🧾 CUENTA</button>` : ""}
+      </div>
+    </div>
+
+    ${pedidos.length ? `<div class="space-y-2 mb-3">
+      ${pedidos.map((p) => `
+        <div class="border border-black/5 rounded-xl p-2.5">
+          <ul class="text-xs mb-2">${p.items.map((i) => `<li>${i.cantidad}× ${i.nombre}</li>`).join("")}</ul>
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] text-jackson-negro/40">${fmtMoney(p.total)}</span>
+            ${p.estado === "entregado" || p.estado === "pagado"
+              ? `<span class="text-[10px] font-display font-semibold text-green-700 bg-green-50 px-2 py-1 rounded-full">✓ Entregado</span>`
+              : `<button data-avanzar-pedido="${p.id}" data-siguiente="${PASO_SIGUIENTE[p.estado] || "entregado"}" class="text-[10px] font-display font-semibold bg-jackson-crema px-2.5 py-1.5 rounded-full">${PASO_LABEL[p.estado] || p.estado} → ${PASO_LABEL[PASO_SIGUIENTE[p.estado] || "entregado"]}</button>`}
+          </div>
+        </div>`).join("")}
+    </div>` : `<p class="text-xs text-jackson-negro/35 mb-3">Todavía no han pedido nada.</p>`}
+
+    ${extras.length ? `<div class="flex flex-wrap gap-1.5 mb-3">
+      ${extras.map((e) => `<button data-atender-solicitud="${e.id}" class="text-[10px] font-display font-semibold bg-jackson-crema px-2.5 py-1.5 rounded-full">🥤 ${e.detalle} ✓</button>`).join("")}
+    </div>` : ""}
+
+    <div class="flex items-center justify-between text-sm mb-3">
+      <div><p class="text-[10px] text-jackson-negro/40">Total a cobrar</p><p class="font-display font-bold">${fmtMoney(total)}</p></div>
+      <div class="text-right"><p class="text-[10px] text-jackson-negro/40">Propina</p><p class="font-display font-bold">${propina ? fmtMoney(propina.detalle?.monto || 0) + (propina.detalle?.calificacion ? " · " + "⭐".repeat(propina.detalle.calificacion) : "") : "—"}</p></div>
+    </div>
+    ${propina?.detalle?.comentario ? `<p class="text-xs italic text-jackson-negro/50 mb-3">"${propina.detalle.comentario}"</p>` : ""}
+
+    <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px]">Mesa desocupada</button>
+  </div>`;
+}
+
+function adjuntarEventosMesas() {
+  document.querySelectorAll("[data-atender-solicitud]").forEach((btn) => {
+    btn.addEventListener("click", () => marcarSolicitudAtendida(btn.dataset.atenderSolicitud));
+  });
+  document.querySelectorAll("[data-avanzar-pedido]").forEach((btn) => {
+    btn.addEventListener("click", () => avanzarEstadoPedido(btn.dataset.avanzarPedido, btn.dataset.siguiente));
+  });
+  document.querySelectorAll("[data-desocupar]").forEach((btn) => {
+    btn.addEventListener("click", () => desocuparMesa(btn.dataset.desocupar));
+  });
+}
+
+async function marcarSolicitudAtendida(id) {
+  await updateDoc(rRef("solicitudes", id), { estado: "atendida" });
+}
+async function avanzarEstadoPedido(id, siguiente) {
+  await updateDoc(rRef("pedidos", id), { estado: siguiente });
+}
+async function desocuparMesa(mesaId) {
+  const mesa = state.mesas.find((m) => m.id === mesaId);
+  if (!mesa) return;
+  if (!confirm(`¿Los clientes de la mesa ${mesa.numero} ya se fueron? Se limpiará su pedido, propina y sesión para el próximo cliente.`)) return;
+
+  const batch = writeBatch(db);
+  // Marca como "pagado" los pedidos activos y "atendida" cualquier solicitud
+  // pendiente, para que el historial de Firestore quede prolijo para tu contabilidad.
+  pedidosDeSesion(mesaId, mesa.sesionActual).forEach((p) => {
+    if (p.estado !== "pagado") batch.update(rRef("pedidos", p.id), { estado: "pagado" });
+  });
+  solicitudesDeSesion(mesaId, mesa.sesionActual).forEach((s) => {
+    if (s.estado === "pendiente") batch.update(rRef("solicitudes", s.id), { estado: "atendida" });
+  });
+  batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null });
+  await batch.commit();
+  mostrarToast(`Mesa ${mesa.numero} lista para el próximo cliente`);
+}
+
+/* ------------------------------------------------------------------
+   PEDIDOS Y SOLICITUDES (tiempo real, todo el restaurante)
+------------------------------------------------------------------ */
+function suscribirPedidos() {
+  onSnapshot(rCol("pedidos"), (snap) => {
+    state.pedidos = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0));
+    renderMesas();
+  }, (err) => console.error("Error leyendo pedidos:", err));
+}
+
+function suscribirSolicitudes() {
+  onSnapshot(rCol("solicitudes"), (snap) => {
+    if (!state.primerSnapshotSolicitudes) {
+      snap.docChanges().forEach((cambio) => {
+        if (cambio.type === "added") {
+          const s = cambio.doc.data();
+          if (s.estado === "pendiente" && (s.tipo === "llamar_mesero" || s.tipo === "pedir_cuenta")) {
+            reproducirBeep();
+            mostrarToast(`Mesa ${s.mesaNumero}: ${s.tipo === "llamar_mesero" ? "está llamando al mesero 🔔" : "pidió la cuenta 🧾"}`);
+          }
+        }
+      });
+    }
+    state.solicitudes = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    state.primerSnapshotSolicitudes = false;
+    renderMesas();
+  }, (err) => console.error("Error leyendo solicitudes:", err));
+}
+
+/* ------------------------------------------------------------------
+   NAVEGACIÓN DE TABS
+------------------------------------------------------------------ */
+document.querySelectorAll(".ej-tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".ej-tab-btn").forEach((b) => b.classList.remove("ej-tab-activo"));
+    btn.classList.add("ej-tab-activo");
+    ["mesas", "menu", "qr"].forEach((t) => document.getElementById("tab" + t[0].toUpperCase() + t.slice(1)).classList.toggle("hidden", t !== btn.dataset.tab));
+  });
+});
+
+/* ------------------------------------------------------------------
+   GESTOR DE MENÚ (CRUD de platos)
+------------------------------------------------------------------ */
+function suscribirPlatos() {
+  onSnapshot(rCol("platos"), (snap) => {
+    state.platos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderListaPlatos();
+  }, (err) => console.error("Error leyendo platos:", err));
+}
+
+function renderListaPlatos() {
+  document.getElementById("listaPlatos").innerHTML = state.platos.map((p) => `
+    <div class="bg-white rounded-2xl p-4 ${!p.disponible ? "opacity-50" : ""}">
+      <div class="flex justify-between items-start gap-2 mb-1">
+        <p class="font-display font-semibold">${p.nombre}</p>
+        <span class="font-display font-bold text-jackson-rojo text-sm whitespace-nowrap">${fmtMoney(p.precio)}</span>
+      </div>
+      <p class="text-[11px] text-jackson-negro/40 mb-2">${CATEGORIA_LABEL[p.categoria] || p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"}</p>
+      <p class="text-xs text-jackson-negro/55 mb-3 line-clamp-2">${p.descripcion || ""}</p>
+      <button data-editar-plato="${p.id}" class="w-full border-2 border-jackson-negro/10 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px]">Editar</button>
+    </div>`).join("") || `<p class="text-sm text-jackson-negro/40 col-span-full py-6 text-center">Todavía no has agregado platos. Crea el primero con "+ Nuevo plato".</p>`;
+
+  document.querySelectorAll("[data-editar-plato]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirModalPlato(state.platos.find((p) => p.id === btn.dataset.editarPlato)));
+  });
+}
+
+function abrirModalPlato(plato) {
+  document.getElementById("tituloModalPlato").textContent = plato ? "Editar plato" : "Nuevo plato";
+  document.getElementById("platoId").value = plato?.id || "";
+  document.getElementById("platoNombre").value = plato?.nombre || "";
+  document.getElementById("platoDescripcion").value = plato?.descripcion || "";
+  document.getElementById("platoPrecio").value = plato?.precio ?? "";
+  document.getElementById("platoCategoria").value = plato?.categoria || "entrada";
+  document.getElementById("platoImagenUrl").value = plato?.imagenUrl || "";
+  document.getElementById("platoModeloUrl").value = plato?.modelo3dUrl || "";
+  document.getElementById("platoDisponible").checked = plato ? !!plato.disponible : true;
+  document.getElementById("btnEliminarPlato").classList.toggle("hidden", !plato);
+  document.getElementById("modalPlato").classList.remove("hidden");
+}
+document.getElementById("btnNuevoPlato").addEventListener("click", () => abrirModalPlato(null));
+document.querySelectorAll('[data-cerrar="modalPlato"]').forEach((el) => el.addEventListener("click", () => document.getElementById("modalPlato").classList.add("hidden")));
+
+document.getElementById("formPlato").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("platoId").value;
+  const datos = {
+    nombre: document.getElementById("platoNombre").value.trim(),
+    descripcion: document.getElementById("platoDescripcion").value.trim(),
+    precio: Number(document.getElementById("platoPrecio").value) || 0,
+    categoria: document.getElementById("platoCategoria").value,
+    imagenUrl: document.getElementById("platoImagenUrl").value.trim(),
+    modelo3dUrl: document.getElementById("platoModeloUrl").value.trim(),
+    disponible: document.getElementById("platoDisponible").checked
+  };
+  try {
+    if (id) await updateDoc(rRef("platos", id), datos);
+    else await addDoc(rCol("platos"), datos);
+    document.getElementById("modalPlato").classList.add("hidden");
+    mostrarToast("Plato guardado");
+  } catch (err) {
+    console.error(err);
+    mostrarToast("No se pudo guardar el plato");
+  }
+});
+
+document.getElementById("btnEliminarPlato").addEventListener("click", async () => {
+  const id = document.getElementById("platoId").value;
+  if (!id || !confirm("¿Eliminar este plato del menú?")) return;
+  await deleteDoc(rRef("platos", id));
+  document.getElementById("modalPlato").classList.add("hidden");
+  mostrarToast("Plato eliminado");
+});
+
+/* ------------------------------------------------------------------
+   GENERADOR DE MESAS Y CÓDIGOS QR
+------------------------------------------------------------------ */
+function renderMesasAdmin() {
+  document.getElementById("listaMesasAdmin").innerHTML = state.mesas.map((m) => `
+    <span class="flex items-center gap-2 bg-jackson-crema text-sm font-display font-semibold px-3 py-2 rounded-xl">
+      Mesa ${m.numero}
+      <button data-eliminar-mesa="${m.id}" class="text-jackson-rojo font-bold">×</button>
+    </span>`).join("") || `<span class="text-sm text-jackson-negro/40">Todavía no has agregado mesas.</span>`;
+
+  document.querySelectorAll("[data-eliminar-mesa]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const mesa = state.mesas.find((m) => m.id === btn.dataset.eliminarMesa);
+      if (mesa?.activa) return mostrarToast("Esa mesa está ocupada, desocúpala antes de eliminarla");
+      if (!confirm(`¿Eliminar la mesa ${mesa.numero}?`)) return;
+      await deleteDoc(rRef("mesas", mesa.id));
+      mostrarToast("Mesa eliminada");
+    });
+  });
+
+  renderHojaQr();
+}
+
+document.getElementById("formNuevaMesa").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const input = document.getElementById("inputNuevaMesa");
+  const numero = input.value.trim();
+  if (!numero) return;
+  if (state.mesas.some((m) => m.id === numero)) { mostrarToast("Esa mesa ya existe"); return; }
+  await setDoc(rRef("mesas", numero), {
+    numero: Number(numero),
+    qrCode: numero,
+    activa: false,
+    sesionActual: null
+  });
+  input.value = "";
+  mostrarToast(`Mesa ${numero} agregada`);
+});
+
+function urlMesa(mesaId) {
+  // Reemplaza "mesero.html" por "mesa.html" en la URL actual para armar el link del QR
+  const base = location.href.replace(/mesero\.html.*$/, "mesa.html");
+  return `${base}?mesa=${mesaId}`;
+}
+
+function renderHojaQr() {
+  const hoja = document.getElementById("hojaQr");
+  hoja.innerHTML = state.mesas.map((m) => `
+    <div class="bg-white rounded-2xl p-4 text-center">
+      <p class="font-heading text-lg mb-2">El Jackson — Mesa ${m.numero}</p>
+      <canvas id="qr-${m.id}" class="mx-auto"></canvas>
+      <p class="text-[10px] text-jackson-negro/40 mt-2 break-all">${urlMesa(m.id)}</p>
+      <button data-descargar-qr="${m.id}" class="ej-no-print mt-2 text-xs font-display font-semibold border-2 border-jackson-negro/10 rounded-lg px-3 py-2 min-h-[44px]">Descargar PNG</button>
+    </div>`).join("");
+
+  state.mesas.forEach((m) => {
+    const canvas = document.getElementById(`qr-${m.id}`);
+    if (canvas && window.QRCode) {
+      QRCode.toCanvas(canvas, urlMesa(m.id), { width: 180, margin: 1, color: { dark: "#111111", light: "#FFFFFF" } });
+    }
+  });
+
+  document.querySelectorAll("[data-descargar-qr]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const canvas = document.getElementById(`qr-${btn.dataset.descargarQr}`);
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = `el-jackson-mesa-${btn.dataset.descargarQr}.png`;
+      a.click();
+    });
+  });
+}
+
+document.getElementById("btnImprimirQr").addEventListener("click", () => window.print());
+
+/* ------------------------------------------------------------------
+   TOAST
+------------------------------------------------------------------ */
+let toastTimeout;
+function mostrarToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => t.classList.add("hidden"), 3200);
+}
+</script>
+</body>
+</html>
