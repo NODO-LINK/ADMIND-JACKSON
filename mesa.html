@@ -57,6 +57,11 @@
   .ej-scroll-x::-webkit-scrollbar{ display:none; }
   .ej-scroll-x{ -ms-overflow-style:none; scrollbar-width:none; }
   .ej-line-clamp-2{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  /* Transiciones suaves en toda la app: cualquier botón/enlace que cambie
+     de color, sombra u opacidad lo hace con una animación fina, no de golpe. */
+  button, a, input, textarea{ transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .2s ease, opacity .2s ease, transform .12s ease; }
+  @keyframes ejFadeIn{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:translateY(0);} }
+  .ej-fade-in{ animation: ejFadeIn .25s ease; }
 </style>
 </head>
 <body class="font-body text-jackson-negro min-h-screen">
@@ -118,13 +123,13 @@
   </section>
 
   <!-- Menú -->
-  <section id="vistaMenu" class="hidden">
+  <section id="vistaMenu" class="hidden ej-fade-in">
     <div id="navCategorias" class="ej-scroll-x sticky top-[57px] z-20 bg-jackson-crema/95 backdrop-blur px-4 py-3 flex gap-2 overflow-x-auto border-b border-black/5"></div>
     <div id="contenedorCategorias" class="px-4 pt-4"></div>
   </section>
 
   <!-- Mi pedido -->
-  <section id="vistaPedido" class="hidden px-4 pt-4">
+  <section id="vistaPedido" class="hidden ej-fade-in px-4 pt-4">
     <h2 class="font-display font-bold text-lg mb-3">Tu carrito</h2>
     <div id="contenedorCarrito" class="space-y-3 mb-6"></div>
 
@@ -157,8 +162,10 @@
   <span class="text-lg">🔔</span><span id="fabTextoLlamar">Llamar al mesero</span>
 </button>
 
-<!-- Toast -->
-<div id="toast" class="hidden fixed bottom-28 left-1/2 z-[80] -translate-x-1/2 bg-jackson-negro text-white text-sm font-display font-medium px-5 py-3 rounded-full shadow-lg whitespace-nowrap"></div>
+<!-- Toast: se posiciona bien por encima del botón de llamar al mesero y de la
+     barra de carrito para que nunca se superpongan, y envuelve el texto en
+     vez de estirarse hacia los lados en mensajes largos. -->
+<div id="toast" class="hidden fixed bottom-40 left-1/2 z-[80] -translate-x-1/2 max-w-[85vw] text-center bg-jackson-negro text-white text-sm font-display font-medium px-5 py-3 rounded-2xl shadow-lg shadow-black/20"></div>
 
 <!-- Footer -->
 <footer class="text-center text-[11px] text-jackson-negro/35 py-7 px-6">
@@ -410,17 +417,21 @@ function tarjetaPlato(p) {
   const modelo = p.modelo3dUrl || MODELOS_DEMO[p.categoria] || "";
   const imagenFallback = `https://placehold.co/600x450/F4F1EF/B0202E?font=playfair-display&text=${encodeURIComponent(p.nombre || "El Jackson")}`;
 
+  // El botón de AR solo se muestra si el plato está disponible: así nunca
+  // coincide en pantalla con la etiqueta "No disponible" (antes ambos se
+  // dibujaban en esquinas opuestas de la misma foto y podían chocar en
+  // tarjetas angostas).
   const media = modelo
     ? `<model-viewer src="${modelo}" ar ar-modes="webxr scene-viewer quick-look" camera-controls auto-rotate auto-rotate-delay="1500" shadow-intensity="0.9" exposure="0.95"
          style="width:100%;height:100%;touch-action:none;background:#F4F1EF" loading="lazy" reveal="auto"
          data-fallback-img="${p.imagenUrl || imagenFallback}">
          <div slot="progress-bar"></div>
-         <button slot="ar-button" class="absolute top-2 right-2 bg-jackson-negro/90 text-white text-[11px] font-display font-semibold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-lg">📷 Ver en tu espacio</button>
+         ${p.disponible ? `<button slot="ar-button" class="absolute top-2 right-2 bg-jackson-negro/90 text-white text-[11px] font-display font-semibold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-lg active:scale-95">📷 Ver en tu espacio</button>` : ""}
        </model-viewer>`
     : `<img src="${p.imagenUrl || imagenFallback}" alt="${p.nombre}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='${imagenFallback}'">`;
 
   return `
-  <div class="bg-white rounded-2xl shadow-sm overflow-hidden mb-4 ${!p.disponible ? "opacity-50" : ""}">
+  <div class="bg-white rounded-2xl shadow-sm shadow-black/[0.04] overflow-hidden mb-4 ${!p.disponible ? "opacity-50" : ""}">
     <div class="relative aspect-[4/3]">
       ${media}
       ${!p.disponible ? `<span class="absolute top-2 left-2 bg-jackson-negro text-white text-[10px] font-display font-semibold px-2.5 py-1 rounded-full">No disponible</span>` : ""}
