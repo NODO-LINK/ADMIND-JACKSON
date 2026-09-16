@@ -57,9 +57,6 @@
   .ej-scroll-x::-webkit-scrollbar{ display:none; }
   .ej-scroll-x{ -ms-overflow-style:none; scrollbar-width:none; }
   .ej-line-clamp-2{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-  /* Estado "seleccionado" de los chips (extra / propina): clase propia en vez de
-     pelear con el orden de las utilidades de borde de Tailwind. */
-  .ej-chip-extra.ej-seleccionado, .ej-chip-propina.ej-seleccionado{ border-color:#B0202E !important; background:#FBEAEC; }
 </style>
 </head>
 <body class="font-body text-jackson-negro min-h-screen">
@@ -108,12 +105,16 @@
   </header>
 
   <!-- Portada -->
-  <section id="vistaPortada" class="px-6 pt-14 pb-10 text-center">
-    <p class="text-6xl mb-5">🍽️</p>
-    <h1 class="font-heading text-3xl mb-2">Bienvenido a El Jackson</h1>
-    <p class="text-jackson-negro/60 mb-1">Estás en la <span class="font-semibold">mesa <span id="numeroMesaPortada">–</span></span></p>
-    <p class="text-jackson-negro/50 text-sm mb-8">Explora el menú en 3D, arma tu pedido y pide lo que necesites sin levantarte de la mesa.</p>
-    <button id="btnVerMenu" class="w-full max-w-xs mx-auto block bg-jackson-rojo hover:bg-jackson-rojoOscuro text-white font-display font-semibold text-base py-4 rounded-2xl shadow-md shadow-jackson-rojo/30 active:scale-[.98] transition min-h-[44px]">Ver el menú</button>
+  <section id="vistaPortada" class="relative overflow-hidden bg-jackson-negro text-white px-6 pt-16 pb-14 text-center">
+    <div class="absolute inset-0 opacity-[0.07] pointer-events-none" style="background-image:repeating-linear-gradient(135deg, #B0202E 0 2px, transparent 2px 20px);"></div>
+    <div class="relative">
+      <p class="font-display text-[11px] tracking-[0.35em] text-white/40 mb-4">RESTAURANTE</p>
+      <h1 class="font-heading text-4xl mb-5">El Jackson</h1>
+      <div class="w-10 h-[3px] bg-jackson-rojo mx-auto mb-6"></div>
+      <span class="inline-block border border-white/20 text-white/80 text-xs font-display font-semibold tracking-widest px-4 py-2 rounded-full mb-7">MESA <span id="numeroMesaPortada">–</span></span>
+      <p class="text-white/50 text-sm mb-9 max-w-xs mx-auto leading-relaxed">Explora el menú en 3D, arma tu pedido y pide lo que necesites sin levantarte de la mesa.</p>
+      <button id="btnVerMenu" class="w-full max-w-xs mx-auto block bg-jackson-rojo hover:bg-jackson-rojoOscuro text-white font-display font-semibold text-base py-4 rounded-2xl shadow-lg shadow-black/40 active:scale-[.98] transition min-h-[44px]">Ver el menú</button>
+    </div>
   </section>
 
   <!-- Menú -->
@@ -147,72 +148,14 @@
 </div>
 
 <!-- ============================================================
-     BOTÓN FLOTANTE DE SERVICIOS DE MESA
+     BOTÓN FLOTANTE: LLAMAR AL MESERO
+     (único servicio de mesa que queda disponible desde aquí, a pedido
+     del restaurante — pedir la cuenta, extras y propina se manejan
+     directo con el mesero en la mesa)
 ============================================================ -->
-<button id="fabServicios" class="hidden fixed right-4 bottom-24 z-40 w-14 h-14 rounded-full bg-jackson-negro text-white text-2xl shadow-lg shadow-black/30 active:scale-95 transition">🛎️</button>
-
-<!-- Modal principal de servicios -->
-<div id="modalServicios" class="hidden fixed inset-0 z-50 flex items-end justify-center">
-  <div class="ej-overlay absolute inset-0 bg-black/50" data-cerrar="modalServicios"></div>
-  <div class="relative bg-white w-full max-w-md rounded-t-3xl px-5 pt-5 pb-8">
-    <div class="w-10 h-1.5 bg-black/10 rounded-full mx-auto mb-4"></div>
-    <h3 class="font-display font-bold text-lg mb-1">Servicios de mesa</h3>
-    <p class="text-xs text-jackson-negro/50 mb-4">Elige lo que necesitas, tu mesero recibe el aviso al instante.</p>
-    <div class="space-y-2.5">
-      <button data-accion="llamar_mesero" class="ej-btn-servicio w-full flex items-center gap-3 border-2 border-jackson-negro/10 rounded-2xl px-4 py-3.5 text-left font-display font-semibold min-h-[44px] active:scale-[.98] transition">
-        <span class="text-xl">🔔</span><span class="flex-1">Llamar al mesero</span>
-      </button>
-      <button data-accion="pedir_cuenta" class="ej-btn-servicio w-full flex items-center gap-3 border-2 border-jackson-negro/10 rounded-2xl px-4 py-3.5 text-left font-display font-semibold min-h-[44px] active:scale-[.98] transition">
-        <span class="text-xl">🧾</span><span class="flex-1">Pedir la cuenta</span>
-      </button>
-      <button data-accion="pedir_extra" class="w-full flex items-center gap-3 border-2 border-jackson-negro/10 rounded-2xl px-4 py-3.5 text-left font-display font-semibold min-h-[44px] active:scale-[.98] transition">
-        <span class="text-xl">🥤</span><span class="flex-1">Pedir un extra</span>
-      </button>
-      <button data-accion="propina" class="w-full flex items-center gap-3 border-2 border-jackson-negro/10 rounded-2xl px-4 py-3.5 text-left font-display font-semibold min-h-[44px] active:scale-[.98] transition">
-        <span class="text-xl">⭐</span><span class="flex-1">Dejar propina / calificar</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: pedir extra -->
-<div id="modalExtra" class="hidden fixed inset-0 z-50 flex items-end justify-center">
-  <div class="ej-overlay absolute inset-0 bg-black/50" data-cerrar="modalExtra"></div>
-  <div class="relative bg-white w-full max-w-md rounded-t-3xl px-5 pt-5 pb-8">
-    <div class="w-10 h-1.5 bg-black/10 rounded-full mx-auto mb-4"></div>
-    <h3 class="font-display font-bold text-lg mb-4">¿Qué necesitas?</h3>
-    <div class="grid grid-cols-2 gap-2.5 mb-4" id="opcionesExtra">
-      <label class="ej-chip-extra flex items-center gap-2 border-2 border-jackson-negro/10 rounded-xl px-3 py-3 min-h-[44px]"><input type="radio" name="extra" value="Agua">💧 Agua</label>
-      <label class="ej-chip-extra flex items-center gap-2 border-2 border-jackson-negro/10 rounded-xl px-3 py-3 min-h-[44px]"><input type="radio" name="extra" value="Cubiertos">🍴 Cubiertos</label>
-      <label class="ej-chip-extra flex items-center gap-2 border-2 border-jackson-negro/10 rounded-xl px-3 py-3 min-h-[44px]"><input type="radio" name="extra" value="Servilletas">🧻 Servilletas</label>
-      <label class="ej-chip-extra flex items-center gap-2 border-2 border-jackson-negro/10 rounded-xl px-3 py-3 min-h-[44px]"><input type="radio" name="extra" value="Salsa">🌶️ Salsa</label>
-      <label class="ej-chip-extra col-span-2 flex items-center gap-2 border-2 border-jackson-negro/10 rounded-xl px-3 py-3 min-h-[44px]"><input type="radio" name="extra" value="Otro">✍️ Otro</label>
-    </div>
-    <input id="inputExtraOtro" type="text" placeholder="Escribe qué necesitas..." class="hidden w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-3 mb-4 text-sm min-h-[44px]">
-    <button id="btnConfirmarExtra" disabled class="w-full bg-jackson-rojo disabled:bg-jackson-negro/15 disabled:cursor-not-allowed text-white font-display font-semibold py-3.5 rounded-xl min-h-[44px]">Enviar solicitud</button>
-  </div>
-</div>
-
-<!-- Modal: propina / calificación -->
-<div id="modalPropina" class="hidden fixed inset-0 z-50 flex items-end justify-center">
-  <div class="ej-overlay absolute inset-0 bg-black/50" data-cerrar="modalPropina"></div>
-  <div class="relative bg-white w-full max-w-md rounded-t-3xl px-5 pt-5 pb-8 max-h-[85vh] overflow-y-auto">
-    <div class="w-10 h-1.5 bg-black/10 rounded-full mx-auto mb-4"></div>
-    <h3 class="font-display font-bold text-lg mb-1">¿Cómo estuvo el servicio?</h3>
-    <p class="text-xs text-jackson-negro/50 mb-4">Tu propina y calificación llegan directo a tu mesero.</p>
-
-    <p class="text-xs font-display font-semibold text-jackson-negro/60 mb-2">CALIFICACIÓN</p>
-    <div id="estrellasPropina" class="flex gap-2 mb-5 text-3xl"></div>
-
-    <p class="text-xs font-display font-semibold text-jackson-negro/60 mb-2">PROPINA</p>
-    <div class="grid grid-cols-4 gap-2 mb-3" id="opcionesPropina"></div>
-    <input id="inputPropinaOtro" type="number" min="0" step="0.5" placeholder="Otro monto en $" class="hidden w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-3 mb-4 text-sm min-h-[44px]">
-
-    <textarea id="comentarioPropina" placeholder="Comentario opcional..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-3 mb-4 text-sm h-20 resize-none"></textarea>
-
-    <button id="btnConfirmarPropina" class="w-full bg-jackson-rojo text-white font-display font-semibold py-3.5 rounded-xl min-h-[44px]">Enviar</button>
-  </div>
-</div>
+<button id="fabLlamarMesero" class="hidden fixed right-4 bottom-24 z-40 bg-jackson-negro text-white font-display font-semibold text-sm pl-4 pr-5 py-3.5 rounded-full shadow-lg shadow-black/30 active:scale-95 transition flex items-center gap-2 min-h-[44px] disabled:opacity-60">
+  <span class="text-lg">🔔</span><span id="fabTextoLlamar">Llamar al mesero</span>
+</button>
 
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-28 left-1/2 z-[80] -translate-x-1/2 bg-jackson-negro text-white text-sm font-display font-medium px-5 py-3 rounded-full shadow-lg whitespace-nowrap"></div>
@@ -259,12 +202,29 @@ const MODELOS_DEMO = {
   bebida: "https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/WaterBottle/glTF-Binary/WaterBottle.glb"
 };
 
-const CATEGORIAS = [
-  { id: "entrada", label: "Entradas" },
-  { id: "plato_fuerte", label: "Platos fuertes" },
-  { id: "bebida", label: "Bebidas" },
-  { id: "postre", label: "Postres" }
-];
+/* Las categorías ya NO son una lista fija: se toman de lo que el mesero
+   escriba en el campo "Categoría" de cada plato (mesero.html), para que el
+   restaurante pueda usar sus propias categorías (Parrillas, Contornos, etc.).
+   Este orden es solo una sugerencia de cómo ordenarlas si existen; cualquier
+   categoría nueva que no esté en esta lista se agrega al final. */
+const ORDEN_SUGERIDO_CATEGORIAS = ["Entradas", "Parrillas", "Platos fuertes", "Contornos", "Bebidas", "Postres"];
+const ICONO_POR_CATEGORIA = {
+  "Entradas": "🥗", "Parrillas": "🔥", "Platos fuertes": "🍽️",
+  "Contornos": "🥔", "Bebidas": "🥤", "Postres": "🍰"
+};
+function iconoCategoria(nombre) { return ICONO_POR_CATEGORIA[nombre] || "🍴"; }
+function categoriaDe(p) { return (p.categoria || "").trim() || "Otros"; }
+function categoriasPresentes() {
+  const vistas = [...new Set(state.platos.map(categoriaDe))];
+  vistas.sort((a, b) => {
+    const ia = ORDEN_SUGERIDO_CATEGORIAS.indexOf(a), ib = ORDEN_SUGERIDO_CATEGORIAS.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b, "es");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  return vistas;
+}
 
 const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
 
@@ -276,10 +236,10 @@ const state = {
   mesaNumero: null,
   sesion: null,
   platos: [],
+  categoriaActiva: null,
   carrito: {},        // { platoId: {nombre, precio, cantidad} }
   pedidos: [],
-  solicitudPendiente: { llamar_mesero: false, pedir_cuenta: false },
-  propinaEnviada: false
+  solicitudPendiente: { llamar_mesero: false }
 };
 
 /* ------------------------------------------------------------------
@@ -428,15 +388,19 @@ function suscribirPlatos() {
 
 function renderNavCategorias() {
   const nav = document.getElementById("navCategorias");
-  const presentes = CATEGORIAS.filter((c) => state.platos.some((p) => (p.categoria || "otros") === c.id));
-  nav.innerHTML = presentes.map((c, i) =>
-    `<button data-cat="${c.id}" class="ej-cat-btn shrink-0 px-4 py-2 rounded-full text-xs font-display font-semibold border-2 border-jackson-negro/10 min-h-[36px] ${i === 0 ? "ej-cat-activa border-transparent" : ""}">${c.label}</button>`
-  ).join("");
+  const categorias = categoriasPresentes();
+  if (!state.categoriaActiva || !categorias.includes(state.categoriaActiva)) {
+    state.categoriaActiva = categorias[0] || null;
+  }
+  nav.innerHTML = categorias.map((c) => `
+    <button data-cat="${encodeURIComponent(c)}" class="ej-cat-btn shrink-0 px-4 py-2 rounded-full text-xs font-display font-semibold border-2 border-jackson-negro/10 min-h-[36px] flex items-center gap-1.5 ${c === state.categoriaActiva ? "ej-cat-activa border-transparent" : ""}">
+      <span>${iconoCategoria(c)}</span><span>${c}</span>
+    </button>`).join("");
   nav.querySelectorAll(".ej-cat-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
-      nav.querySelectorAll(".ej-cat-btn").forEach((b) => b.classList.remove("ej-cat-activa", "border-transparent"));
-      btn.classList.add("ej-cat-activa", "border-transparent");
-      document.getElementById("cat-" + btn.dataset.cat)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      state.categoriaActiva = decodeURIComponent(btn.dataset.cat);
+      renderNavCategorias();
+      renderMenu();
     });
   });
 }
@@ -447,10 +411,11 @@ function tarjetaPlato(p) {
   const imagenFallback = `https://placehold.co/600x450/F4F1EF/B0202E?font=playfair-display&text=${encodeURIComponent(p.nombre || "El Jackson")}`;
 
   const media = modelo
-    ? `<model-viewer src="${modelo}" camera-controls auto-rotate auto-rotate-delay="1500" shadow-intensity="0.9" exposure="0.95"
+    ? `<model-viewer src="${modelo}" ar ar-modes="webxr scene-viewer quick-look" camera-controls auto-rotate auto-rotate-delay="1500" shadow-intensity="0.9" exposure="0.95"
          style="width:100%;height:100%;touch-action:none;background:#F4F1EF" loading="lazy" reveal="auto"
          data-fallback-img="${p.imagenUrl || imagenFallback}">
          <div slot="progress-bar"></div>
+         <button slot="ar-button" class="absolute top-2 right-2 bg-jackson-negro/90 text-white text-[11px] font-display font-semibold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-lg">📷 Ver en tu espacio</button>
        </model-viewer>`
     : `<img src="${p.imagenUrl || imagenFallback}" alt="${p.nombre}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='${imagenFallback}'">`;
 
@@ -476,14 +441,17 @@ function tarjetaPlato(p) {
 
 function renderMenu() {
   const cont = document.getElementById("contenedorCategorias");
-  const presentes = CATEGORIAS.filter((c) => state.platos.some((p) => (p.categoria || "otros") === c.id));
-  cont.innerHTML = presentes.map((c) => {
-    const platos = state.platos.filter((p) => (p.categoria || "otros") === c.id);
-    return `<div id="cat-${c.id}" class="mb-2 scroll-mt-32">
-      <h2 class="font-heading text-xl mb-3 pt-1">${c.label}</h2>
-      ${platos.map(tarjetaPlato).join("")}
-    </div>`;
-  }).join("") || `<p class="text-center text-jackson-negro/40 text-sm py-10">Todavía no hay platos cargados en el menú.</p>`;
+  const categorias = categoriasPresentes();
+
+  if (categorias.length === 0) {
+    cont.innerHTML = `<p class="text-center text-jackson-negro/40 text-sm py-10">Todavía no hay platos cargados en el menú.</p>`;
+    return;
+  }
+  if (!state.categoriaActiva || !categorias.includes(state.categoriaActiva)) state.categoriaActiva = categorias[0];
+
+  const platos = state.platos.filter((p) => categoriaDe(p) === state.categoriaActiva);
+  cont.innerHTML = platos.map(tarjetaPlato).join("") ||
+    `<p class="text-center text-jackson-negro/40 text-sm py-10">No hay platos todavía en "${state.categoriaActiva}".</p>`;
 
   cont.querySelectorAll("[data-add]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -642,32 +610,23 @@ function horaRelativa(ts) {
 }
 
 /* ------------------------------------------------------------------
-   SOLICITUDES: llamar mesero / pedir cuenta / extra / propina
+   SOLICITUDES: por ahora, solo "llamar al mesero" desde esta pantalla
+   (pedir la cuenta, extras y propina se atienden directo con el mesero)
 ------------------------------------------------------------------ */
 function suscribirSolicitudes() {
   const q = query(rCol("solicitudes"), where("mesaId", "==", state.mesaId), where("sesion", "==", state.sesion));
   onSnapshot(q, (snap) => {
     const solicitudes = snap.docs.map((d) => d.data());
     state.solicitudPendiente.llamar_mesero = solicitudes.some((s) => s.tipo === "llamar_mesero" && s.estado === "pendiente");
-    state.solicitudPendiente.pedir_cuenta = solicitudes.some((s) => s.tipo === "pedir_cuenta" && s.estado === "pendiente");
-    state.propinaEnviada = solicitudes.some((s) => s.tipo === "propina_calificacion");
-    actualizarEstadoBotonesServicio();
+    actualizarEstadoFabLlamar();
   }, (err) => console.error("Error leyendo solicitudes:", err));
 }
 
-function actualizarEstadoBotonesServicio() {
-  const btnLlamar = document.querySelector('[data-accion="llamar_mesero"]');
-  const btnCuenta = document.querySelector('[data-accion="pedir_cuenta"]');
-  if (btnLlamar) {
-    btnLlamar.disabled = state.solicitudPendiente.llamar_mesero;
-    btnLlamar.querySelector("span:last-child").textContent = state.solicitudPendiente.llamar_mesero ? "Tu mesero ya viene en camino..." : "Llamar al mesero";
-    btnLlamar.classList.toggle("opacity-50", state.solicitudPendiente.llamar_mesero);
-  }
-  if (btnCuenta) {
-    btnCuenta.disabled = state.solicitudPendiente.pedir_cuenta;
-    btnCuenta.querySelector("span:last-child").textContent = state.solicitudPendiente.pedir_cuenta ? "Ya pedimos tu cuenta" : "Pedir la cuenta";
-    btnCuenta.classList.toggle("opacity-50", state.solicitudPendiente.pedir_cuenta);
-  }
+function actualizarEstadoFabLlamar() {
+  const fab = document.getElementById("fabLlamarMesero");
+  if (!fab) return;
+  fab.disabled = state.solicitudPendiente.llamar_mesero;
+  document.getElementById("fabTextoLlamar").textContent = state.solicitudPendiente.llamar_mesero ? "Mesero en camino..." : "Llamar al mesero";
 }
 
 async function crearSolicitud(tipo, detalle = null) {
@@ -689,7 +648,7 @@ function cambiarTab(tab) {
   document.getElementById("vistaPortada").classList.add("hidden");
   document.getElementById("vistaMenu").classList.toggle("hidden", tab !== "menu");
   document.getElementById("vistaPedido").classList.toggle("hidden", tab !== "pedido");
-  document.getElementById("fabServicios").classList.remove("hidden");
+  document.getElementById("fabLlamarMesero").classList.remove("hidden");
   actualizarBarraCarrito();
 }
 
@@ -698,125 +657,17 @@ document.getElementById("btnVerMenu").addEventListener("click", () => cambiarTab
 document.getElementById("btnIrCarrito").addEventListener("click", () => cambiarTab("pedido"));
 
 /* ------------------------------------------------------------------
-   MODALES DE SERVICIOS
+   LLAMAR AL MESERO (un solo toque, sin menús intermedios)
 ------------------------------------------------------------------ */
-function abrirModal(id) { document.getElementById(id).classList.remove("hidden"); }
-function cerrarModal(id) { document.getElementById(id).classList.add("hidden"); }
-document.querySelectorAll("[data-cerrar]").forEach((el) => el.addEventListener("click", () => cerrarModal(el.dataset.cerrar)));
-
-document.getElementById("fabServicios").addEventListener("click", () => abrirModal("modalServicios"));
-
-document.querySelectorAll("#modalServicios [data-accion]").forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const accion = btn.dataset.accion;
-    if (accion === "llamar_mesero") {
-      cerrarModal("modalServicios");
-      await crearSolicitud("llamar_mesero");
-      mostrarToast("🔔 Tu mesero fue notificado");
-    } else if (accion === "pedir_cuenta") {
-      cerrarModal("modalServicios");
-      await crearSolicitud("pedir_cuenta");
-      mostrarToast("🧾 Ya pedimos tu cuenta");
-    } else if (accion === "pedir_extra") {
-      cerrarModal("modalServicios");
-      abrirModal("modalExtra");
-    } else if (accion === "propina") {
-      cerrarModal("modalServicios");
-      prepararModalPropina();
-      abrirModal("modalPropina");
-    }
-  });
-});
-
-/* --- Pedir extra --- */
-let extraSeleccionado = "";
-document.querySelectorAll('input[name="extra"]').forEach((r) => {
-  r.addEventListener("change", () => {
-    extraSeleccionado = r.value;
-    document.getElementById("inputExtraOtro").classList.toggle("hidden", r.value !== "Otro");
-    document.getElementById("btnConfirmarExtra").disabled = r.value === "Otro" ? document.getElementById("inputExtraOtro").value.trim() === "" : false;
-    document.querySelectorAll(".ej-chip-extra").forEach((l) => l.classList.remove("ej-seleccionado"));
-    r.closest(".ej-chip-extra").classList.add("ej-seleccionado");
-  });
-});
-document.getElementById("inputExtraOtro").addEventListener("input", (e) => {
-  document.getElementById("btnConfirmarExtra").disabled = e.target.value.trim() === "";
-});
-document.getElementById("btnConfirmarExtra").addEventListener("click", async () => {
-  const detalle = extraSeleccionado === "Otro" ? document.getElementById("inputExtraOtro").value.trim() : extraSeleccionado;
-  if (!detalle) return;
-  await crearSolicitud("pedir_extra", detalle);
-  cerrarModal("modalExtra");
-  document.querySelectorAll('input[name="extra"]').forEach((r) => (r.checked = false));
-  document.getElementById("inputExtraOtro").value = "";
-  document.getElementById("inputExtraOtro").classList.add("hidden");
-  document.getElementById("btnConfirmarExtra").disabled = true;
-  mostrarToast(`Listo, pedimos: ${detalle}`);
-});
-
-/* --- Propina / calificación --- */
-let estrellasSeleccionadas = 0;
-let montoPropinaSeleccionado = 0;
-
-function prepararModalPropina() {
-  const totalConsumido = state.pedidos.reduce((acc, p) => acc + (p.total || 0), 0);
-  const opciones = [
-    { label: "10%", monto: +(totalConsumido * 0.10).toFixed(2) },
-    { label: "15%", monto: +(totalConsumido * 0.15).toFixed(2) },
-    { label: "20%", monto: +(totalConsumido * 0.20).toFixed(2) },
-    { label: "Otro monto", monto: null }
-  ];
-  document.getElementById("opcionesPropina").innerHTML = opciones.map((o, i) => `
-    <button data-monto="${o.monto ?? ""}" class="ej-chip-propina border-2 border-jackson-negro/10 rounded-xl py-3 text-xs font-display font-semibold min-h-[44px]">
-      ${o.label}${o.monto ? `<br><span class="text-jackson-negro/50">${fmtMoney(o.monto)}</span>` : ""}
-    </button>`).join("");
-
-  document.querySelectorAll(".ej-chip-propina").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".ej-chip-propina").forEach((b) => b.classList.remove("ej-seleccionado"));
-      btn.classList.add("ej-seleccionado");
-      const inputOtro = document.getElementById("inputPropinaOtro");
-      if (btn.dataset.monto === "") {
-        inputOtro.classList.remove("hidden");
-        inputOtro.focus();
-        montoPropinaSeleccionado = 0;
-      } else {
-        inputOtro.classList.add("hidden");
-        montoPropinaSeleccionado = Number(btn.dataset.monto);
-      }
-    });
-  });
-
-  document.getElementById("inputPropinaOtro").oninput = (e) => { montoPropinaSeleccionado = Number(e.target.value) || 0; };
-
-  estrellasSeleccionadas = 0;
-  renderEstrellas();
-}
-
-function renderEstrellas() {
-  const cont = document.getElementById("estrellasPropina");
-  cont.innerHTML = [1, 2, 3, 4, 5].map((n) =>
-    `<button data-estrella="${n}" class="transition ${n <= estrellasSeleccionadas ? "" : "grayscale opacity-40"}">⭐</button>`
-  ).join("");
-  cont.querySelectorAll("[data-estrella]").forEach((b) => {
-    b.addEventListener("click", () => { estrellasSeleccionadas = Number(b.dataset.estrella); renderEstrellas(); });
-  });
-}
-
-document.getElementById("btnConfirmarPropina").addEventListener("click", async () => {
-  if (!estrellasSeleccionadas && !montoPropinaSeleccionado) {
-    mostrarToast("Elige al menos una calificación o un monto de propina");
-    return;
+document.getElementById("fabLlamarMesero").addEventListener("click", async () => {
+  if (state.solicitudPendiente.llamar_mesero) return; // evita dobles toques
+  try {
+    await crearSolicitud("llamar_mesero");
+    mostrarToast("🔔 Tu mesero fue notificado");
+  } catch (e) {
+    console.error("Error llamando al mesero:", e);
+    mostrarToast("No se pudo avisar al mesero, intenta de nuevo");
   }
-  const comentario = document.getElementById("comentarioPropina").value.trim();
-  await crearSolicitud("propina_calificacion", {
-    monto: montoPropinaSeleccionado || 0,
-    calificacion: estrellasSeleccionadas || 0,
-    comentario
-  });
-  cerrarModal("modalPropina");
-  document.getElementById("comentarioPropina").value = "";
-  mostrarToast("¡Gracias por tu propina y calificación! ⭐");
 });
 
 /* ------------------------------------------------------------------
