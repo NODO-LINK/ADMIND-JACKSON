@@ -632,8 +632,12 @@ function activarArrastreMesa(el) {
 ------------------------------------------------------------------ */
 function abrirDetalleMesa(mesaId) {
   state.mesaAbiertaId = mesaId;
-  refrescarModalMesa();
+  // Importante: primero se quita "hidden" y LUEGO se llena el contenido.
+  // refrescarModalMesa() se cancela a sí misma si el modal sigue oculto
+  // (para no pintar contenido de un modal que nadie ve), así que si el
+  // orden fuera al revés la ventana se abriría siempre vacía.
   document.getElementById("modalMesa").classList.remove("hidden");
+  refrescarModalMesa();
 }
 
 function refrescarModalMesa() {
@@ -670,7 +674,7 @@ function contenidoDetalleMesa(m) {
     ${pedidos.length ? `<div class="space-y-2 mb-3">
       ${pedidos.map((p) => `
         <div class="bg-white border border-black/5 rounded-xl p-3">
-          <ul class="text-sm mb-2">${p.items.map((i) => `<li class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></li>`).join("")}</ul>
+          <ul class="text-sm mb-2">${(p.items || []).map((i) => `<li class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></li>`).join("")}</ul>
           <div class="flex items-center justify-between">
             <span class="text-xs text-jackson-negro/40">${fmtMoney(p.total)}</span>
             ${p.estado === "entregado" || p.estado === "pagado"
