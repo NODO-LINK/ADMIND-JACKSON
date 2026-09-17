@@ -124,6 +124,7 @@
       <button data-tab="mesas" class="ej-tab-btn ej-tab-activo px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Mesas</button>
       <button data-tab="menu" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Menú</button>
       <button data-tab="qr" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Códigos QR</button>
+      <button data-tab="ajustes" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Ajustes</button>
     </nav>
   </header>
 
@@ -208,6 +209,41 @@
     </div>
     <div id="hojaQr" class="grid grid-cols-2 sm:grid-cols-3 gap-6"></div>
   </section>
+
+  <!-- ==========================================================
+       TAB: AJUSTES — lo que ve el cliente en mesa.html (portada,
+       wifi, horario, redes). Un solo documento en Firestore.
+  ========================================================== -->
+  <section id="tabAjustes" class="hidden px-4 py-5 max-w-lg mx-auto">
+    <h2 class="font-display font-bold text-lg mb-1">Ajustes del restaurante</h2>
+    <p class="text-xs text-jackson-negro/40 mb-4">Esto es lo que ven tus clientes en el menú de la mesa: la foto de portada, el wifi, el horario y tus redes.</p>
+    <form id="formAjustes" class="bg-white rounded-2xl p-5 shadow-sm shadow-black/[0.04] space-y-3">
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">URL de foto de portada</label>
+        <input id="ajusteFotoPortada" type="url" placeholder="https://..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+        <p class="text-[10px] text-jackson-negro/40 mt-1">Una foto del ambiente del restaurante. Súbela a un hosting de imágenes y pega el link aquí. Si la dejas vacía, se usa el diseño de marca por defecto.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-display font-semibold text-jackson-negro/60">Red de wifi</label>
+          <input id="ajusteWifiRed" placeholder="ElJackson_Clientes" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+        </div>
+        <div>
+          <label class="text-xs font-display font-semibold text-jackson-negro/60">Clave de wifi</label>
+          <input id="ajusteWifiClave" placeholder="Opcional" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Horario</label>
+        <input id="ajusteHorario" placeholder="Mar–Dom, 12m–11pm" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+      </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Redes sociales</label>
+        <input id="ajusteRedes" placeholder="@eljackson en Instagram" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+      </div>
+      <button class="w-full bg-jackson-rojo text-white font-display font-semibold py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20">Guardar ajustes</button>
+    </form>
+  </section>
 </div>
 
 <!-- ============================================================
@@ -257,6 +293,9 @@
       </div>
       <label class="flex items-center gap-2 text-sm font-display font-medium">
         <input id="platoDisponible" type="checkbox" checked> Disponible en el menú
+      </label>
+      <label class="flex items-center gap-2 text-sm font-display font-medium">
+        <input id="platoRecomendado" type="checkbox"> ⭐ Recomendado del chef (aparece en el carrusel destacado)
       </label>
     </div>
     <div class="flex gap-2 mt-5">
@@ -338,6 +377,10 @@
            allow create: if true;
            allow read, update: if request.auth != null;
            allow delete: if false;
+         }
+         match /ajustes/{ajusteId} {
+           allow read: if true;                 // el cliente lee wifi/horario/redes/portada
+           allow write: if request.auth != null; // solo el mesero los edita
          }
        }
      }
@@ -435,7 +478,40 @@ function iniciarSuscripciones() {
   suscribirPlatos();
   suscribirPedidos();
   suscribirSolicitudes();
+  suscribirAjustes();
 }
+
+/* ------------------------------------------------------------------
+   AJUSTES DEL RESTAURANTE (lo que ve el cliente: portada, wifi, horario,
+   redes) — un solo documento en Firestore, editable desde esta pestaña.
+------------------------------------------------------------------ */
+function suscribirAjustes() {
+  onSnapshot(rRef("ajustes", "general"), (snap) => {
+    const a = snap.exists() ? snap.data() : {};
+    document.getElementById("ajusteFotoPortada").value = a.fotoPortadaUrl || "";
+    document.getElementById("ajusteWifiRed").value = a.wifiRed || "";
+    document.getElementById("ajusteWifiClave").value = a.wifiClave || "";
+    document.getElementById("ajusteHorario").value = a.horario || "";
+    document.getElementById("ajusteRedes").value = a.redesSociales || "";
+  }, (err) => console.error("Error leyendo ajustes:", err));
+}
+
+document.getElementById("formAjustes").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await setDoc(rRef("ajustes", "general"), {
+      fotoPortadaUrl: document.getElementById("ajusteFotoPortada").value.trim(),
+      wifiRed: document.getElementById("ajusteWifiRed").value.trim(),
+      wifiClave: document.getElementById("ajusteWifiClave").value.trim(),
+      horario: document.getElementById("ajusteHorario").value.trim(),
+      redesSociales: document.getElementById("ajusteRedes").value.trim()
+    });
+    mostrarToast("Ajustes guardados");
+  } catch (err) {
+    console.error(err);
+    mostrarToast("No se pudieron guardar los ajustes");
+  }
+});
 
 /* ------------------------------------------------------------------
    SONIDO Y AVISO DE URGENCIA (llamar mesero / pedir cuenta)
@@ -686,7 +762,8 @@ function contenidoDetalleMesa(m) {
     ${pedidos.length ? `<div class="space-y-2 mb-3">
       ${pedidos.map((p) => `
         <div class="bg-white border border-black/5 rounded-xl p-3 shadow-sm shadow-black/[0.03]">
-          <ul class="text-sm mb-2">${(p.items || []).map((i) => `<li class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></li>`).join("")}</ul>
+          ${p.clienteNombre ? `<p class="text-[10px] font-display font-bold text-jackson-negro/40 mb-1.5 uppercase tracking-wide">🙋 ${p.clienteNombre}</p>` : ""}
+          <ul class="text-sm mb-2 space-y-1">${(p.items || []).map((i) => `<li><div class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></div>${i.nota ? `<p class="text-[11px] text-jackson-rojo/80 italic">"${i.nota}"</p>` : ""}</li>`).join("")}</ul>
           <div class="flex items-center justify-between">
             <span class="text-xs text-jackson-negro/40">${fmtMoney(p.total)}</span>
             ${p.estado === "entregado" || p.estado === "pagado"
@@ -845,7 +922,7 @@ document.querySelectorAll(".ej-tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".ej-tab-btn").forEach((b) => b.classList.remove("ej-tab-activo"));
     btn.classList.add("ej-tab-activo");
-    ["mesas", "menu", "qr"].forEach((t) => document.getElementById("tab" + t[0].toUpperCase() + t.slice(1)).classList.toggle("hidden", t !== btn.dataset.tab));
+    ["mesas", "menu", "qr", "ajustes"].forEach((t) => document.getElementById("tab" + t[0].toUpperCase() + t.slice(1)).classList.toggle("hidden", t !== btn.dataset.tab));
   });
 });
 
@@ -866,7 +943,7 @@ function renderListaPlatos() {
         <p class="font-display font-semibold">${p.nombre}</p>
         <span class="font-display font-bold text-jackson-rojo text-sm whitespace-nowrap">${fmtMoney(p.precio)}</span>
       </div>
-      <p class="text-[11px] text-jackson-negro/40 mb-2">${p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"}</p>
+      <p class="text-[11px] text-jackson-negro/40 mb-2">${p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"} ${p.recomendado ? "· ⭐ Recomendado" : ""}</p>
       <p class="text-xs text-jackson-negro/55 mb-3 line-clamp-2">${p.descripcion || ""}</p>
       <button data-editar-plato="${p.id}" class="w-full border-2 border-jackson-negro/10 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px] active:scale-[.97]">Editar</button>
     </div>`).join("") || `<p class="text-sm text-jackson-negro/40 col-span-full py-6 text-center">Todavía no has agregado platos. Crea el primero con "+ Nuevo plato".</p>`;
@@ -886,6 +963,7 @@ function abrirModalPlato(plato) {
   document.getElementById("platoImagenUrl").value = plato?.imagenUrl || "";
   document.getElementById("platoModeloUrl").value = plato?.modelo3dUrl || "";
   document.getElementById("platoDisponible").checked = plato ? !!plato.disponible : true;
+  document.getElementById("platoRecomendado").checked = !!plato?.recomendado;
   document.getElementById("btnEliminarPlato").classList.toggle("hidden", !plato);
   document.getElementById("modalPlato").classList.remove("hidden");
 }
@@ -911,7 +989,8 @@ document.getElementById("formPlato").addEventListener("submit", async (e) => {
     categoria: document.getElementById("platoCategoria").value.trim(),
     imagenUrl: document.getElementById("platoImagenUrl").value.trim(),
     modelo3dUrl: document.getElementById("platoModeloUrl").value.trim(),
-    disponible: document.getElementById("platoDisponible").checked
+    disponible: document.getElementById("platoDisponible").checked,
+    recomendado: document.getElementById("platoRecomendado").checked
   };
   try {
     if (id) await updateDoc(rRef("platos", id), datos);
