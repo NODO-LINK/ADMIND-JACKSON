@@ -77,9 +77,29 @@
   @keyframes ejEsqueleto{ 0%{ background-position:-200% 0; } 100%{ background-position:200% 0; } }
   .ej-esqueleto{ background:linear-gradient(90deg, rgba(17,17,17,.06) 25%, rgba(17,17,17,.11) 37%, rgba(17,17,17,.06) 63%); background-size:200% 100%; animation:ejEsqueleto 1.4s ease-in-out infinite; }
   html.dark .ej-esqueleto{ background:linear-gradient(90deg, rgba(255,255,255,.06) 25%, rgba(255,255,255,.12) 37%, rgba(255,255,255,.06) 63%); background-size:200% 100%; }
+  /* Transición de "pop" para las pantallas de confirmación (pedido enviado /
+     pedido listo) y para el cambio entre categorías y platos. */
+  @keyframes ejPopIn{ from{ opacity:0; transform:scale(.9) translateY(8px);} to{ opacity:1; transform:scale(1) translateY(0);} }
+  .ej-pop-in{ animation: ejPopIn .32s cubic-bezier(.2,.8,.3,1); }
+  /* Fondo difuminado de toda la app: una foto del restaurante (la carga el
+     mesero desde Ajustes) desenfocada detrás de todo, con una capa oscura
+     encima para que el texto siga siendo legible. Si no hay foto cargada,
+     queda el fondo negro de siempre. */
+  #fondoAppFoto{
+    position:fixed; inset:-5%; z-index:-20; background-size:cover; background-position:center;
+    filter:blur(28px); transform:scale(1.15); opacity:0; transition:opacity .6s ease;
+  }
+  #fondoAppFoto.ej-fondo-activo{ opacity:1; }
+  #fondoAppCapa{ position:fixed; inset:0; z-index:-19; background:rgba(12,12,12,.72); }
 </style>
 </head>
 <body class="font-body text-jackson-negro dark:text-white min-h-screen dark:bg-[#0c0c0c]">
+
+<!-- Fondo de toda la app: foto del restaurante desenfocada (la sube el
+     mesero desde Ajustes → "Imagen de fondo"). Si no hay foto, no se ve
+     nada aquí y queda el fondo negro de siempre. -->
+<div id="fondoAppFoto"></div>
+<div id="fondoAppCapa"></div>
 
 <!-- ============================================================
      PANTALLA DE CARGA
@@ -137,25 +157,44 @@
     </div>
   </section>
 
-  <!-- Menú -->
+  <!-- Menú: primero se elige una categoría (bebidas, contornos, platos,
+       jugos...) y solo después se despliegan los platos de esa categoría.
+       Las categorías salen de lo que el mesero escriba en cada plato, así
+       que se editan 100% desde su panel, sin tocar este archivo. -->
   <section id="vistaMenu" class="hidden ej-fade-in">
-    <!-- Recomendados del chef: solo aparece si hay platos marcados como
-         recomendados desde el panel del mesero -->
-    <div id="carruselRecomendados" class="hidden px-4 pt-4">
-      <p class="font-display font-bold text-sm mb-2.5 flex items-center gap-1.5"><span data-icono="estrella|w-4 h-4"></span> Recomendados del chef</p>
-      <div id="pistaRecomendados" class="ej-carrusel flex gap-3 overflow-x-auto pb-1"></div>
+
+    <!-- Pantalla 1: elegir categoría -->
+    <div id="vistaCategoriasMenu">
+      <!-- Recomendados del chef: solo aparece si hay platos marcados como
+           recomendados desde el panel del mesero -->
+      <div id="carruselRecomendados" class="hidden px-4 pt-4">
+        <p class="font-display font-bold text-sm mb-2.5 flex items-center gap-1.5"><span data-icono="estrella|w-4 h-4"></span> Recomendados del chef</p>
+        <div id="pistaRecomendados" class="ej-carrusel flex gap-3 overflow-x-auto pb-1"></div>
+      </div>
+      <div class="px-4 pt-5 pb-1">
+        <h2 class="font-display font-bold text-lg">¿Qué se te antoja?</h2>
+        <p class="text-xs text-jackson-negro/40 dark:text-white/40">Elige una categoría para ver los platos</p>
+      </div>
+      <div id="gridCategorias" class="grid grid-cols-2 gap-3 px-4 pt-3 pb-6">
+        <!-- Esqueleto inicial: desaparece solo cuando llegan las categorías reales -->
+        <div class="ej-esqueleto rounded-2xl aspect-[4/3]"></div>
+        <div class="ej-esqueleto rounded-2xl aspect-[4/3]"></div>
+        <div class="ej-esqueleto rounded-2xl aspect-[4/3]"></div>
+        <div class="ej-esqueleto rounded-2xl aspect-[4/3]"></div>
+      </div>
     </div>
 
-    <div id="navCategorias" class="ej-scroll-x sticky top-[57px] z-20 bg-jackson-crema/95 dark:bg-[#0c0c0c]/95 backdrop-blur px-4 py-3 flex gap-2 overflow-x-auto border-b border-black/5 dark:border-white/10">
-      <!-- Esqueleto inicial: desaparece solo cuando llegan las categorías reales -->
-      <div class="ej-esqueleto shrink-0 w-20 h-9 rounded-full"></div>
-      <div class="ej-esqueleto shrink-0 w-24 h-9 rounded-full"></div>
-      <div class="ej-esqueleto shrink-0 w-20 h-9 rounded-full"></div>
-    </div>
-    <div id="contenedorCategorias" class="px-4 pt-4">
-      <!-- Esqueleto inicial: desaparece solo cuando llegan los platos reales -->
-      <div class="ej-esqueleto rounded-2xl overflow-hidden mb-4"><div class="aspect-[4/3]"></div><div class="h-24"></div></div>
-      <div class="ej-esqueleto rounded-2xl overflow-hidden mb-4"><div class="aspect-[4/3]"></div><div class="h-24"></div></div>
+    <!-- Pantalla 2: platos de la categoría elegida -->
+    <div id="vistaPlatosCategoria" class="hidden">
+      <div id="navCategorias" class="ej-scroll-x sticky top-[57px] z-20 bg-jackson-crema/95 dark:bg-[#0c0c0c]/95 backdrop-blur px-4 py-3 flex items-center gap-2 overflow-x-auto border-b border-black/5 dark:border-white/10">
+        <button id="btnVolverCategorias" class="shrink-0 w-9 h-9 rounded-full bg-jackson-negro/5 dark:bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="volver|w-4 h-4"></span></button>
+        <div id="pillsCategorias" class="flex gap-2"></div>
+      </div>
+      <div id="contenedorCategorias" class="px-4 pt-4">
+        <!-- Esqueleto inicial: desaparece solo cuando llegan los platos reales -->
+        <div class="ej-esqueleto rounded-2xl overflow-hidden mb-4"><div class="aspect-[4/3]"></div><div class="h-24"></div></div>
+        <div class="ej-esqueleto rounded-2xl overflow-hidden mb-4"><div class="aspect-[4/3]"></div><div class="h-24"></div></div>
+      </div>
     </div>
   </section>
 
@@ -277,6 +316,34 @@
   </div>
 </div>
 
+<!-- ============================================================
+     PROPINA — se pregunta una sola vez, justo antes de enviar el
+     PRIMER pedido a cocina (no se vuelve a preguntar el resto de la visita).
+============================================================ -->
+<div id="modalPropinaInicial" class="hidden fixed inset-0 z-[67] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
+  <div class="relative bg-white dark:bg-[#171717] dark:text-white w-full max-w-sm rounded-3xl p-6 shadow-2xl shadow-black/30 ej-fade-in">
+    <h3 class="font-display font-bold text-lg mb-1.5">¿Deseas dejar propina?</h3>
+    <p class="text-xs text-jackson-negro/50 dark:text-white/50 mb-4 leading-relaxed">Totalmente opcional. Se la hacemos saber a tu mesero; el cobro se hace en el local.</p>
+    <div id="opcionesPropina" class="grid grid-cols-4 gap-2 mb-3"></div>
+    <input id="inputPropinaInicialOtra" type="number" min="0" step="0.5" placeholder="¿Cuánto? ($)" class="hidden w-full border-2 border-jackson-negro/10 dark:border-white/20 dark:bg-white/5 rounded-xl px-3 py-3 mb-3 min-h-[44px]">
+    <button id="btnConfirmarPropinaInicial" class="w-full bg-jackson-rojo text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98] transition">Continuar</button>
+    <button type="button" id="btnSinPropinaInicial" class="w-full text-jackson-negro/40 dark:text-white/40 font-display font-medium text-xs py-3 min-h-[44px]">No, gracias</button>
+  </div>
+</div>
+
+<!-- ============================================================
+     TRANSICIÓN DE ESTADO — pantalla breve con animación para los dos
+     momentos clave del pedido: "enviado a cocina" y "listo para servir".
+============================================================ -->
+<div id="pantallaTransicion" class="hidden fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm px-6 ej-fade-in">
+  <div id="tarjetaTransicion" class="bg-white dark:bg-[#171717] dark:text-white rounded-3xl px-8 py-10 max-w-xs w-full text-center shadow-2xl ej-pop-in">
+    <div id="iconoTransicion" class="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center"></div>
+    <h3 id="tituloTransicion" class="font-display font-bold text-xl mb-1"></h3>
+    <p id="subtituloTransicion" class="text-sm text-jackson-negro/50 dark:text-white/50"></p>
+  </div>
+</div>
+
 <!-- Toast: se posiciona bien por encima del botón de llamar al mesero y de la
      barra de carrito para que nunca se superpongan, y envuelve el texto en
      vez de estirarse hacia los lados en mensajes largos. -->
@@ -341,7 +408,8 @@ const ICONOS = {
   wifi: '<path d="M3.5 9 A13 13 0 0 1 20.5 9"/><path d="M6.3 12.5 A9 9 0 0 1 17.7 12.5"/><path d="M9.2 16 A4.6 4.6 0 0 1 14.8 16"/><circle cx="12" cy="19.2" r="1" fill="currentColor" stroke="none"/>',
   reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5 V12 L15.3 14"/>',
   telefono: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.3 H13"/>',
-  cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>'
+  cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>',
+  volver: '<path d="M15 5 L7 12 L15 19"/>'
 };
 function ic(nombre, cls) {
   cls = cls || "w-4 h-4";
@@ -384,7 +452,7 @@ const ICONO_POR_CATEGORIA = {
   "Entradas": "ensalada", "Parrillas": "fuego", "Platos fuertes": "platos",
   "Contornos": "guarnicion", "Bebidas": "bebida", "Postres": "postre"
 };
-function iconoCategoria(nombre) { return ic(ICONO_POR_CATEGORIA[nombre] || "platos", "w-3.5 h-3.5"); }
+function iconoCategoria(nombre, cls) { return ic(ICONO_POR_CATEGORIA[nombre] || "platos", cls || "w-3.5 h-3.5"); }
 function categoriaDe(p) { return (p.categoria || "").trim() || "Otros"; }
 function categoriasPresentes() {
   const vistas = [...new Set(state.platos.map(categoriaDe))];
@@ -409,11 +477,15 @@ const state = {
   sesion: null,
   platos: [],
   categoriaActiva: null,
+  vistaMenuActual: "categorias", // "categorias" | "platos" — cuál de las dos pantallas del Menú se muestra
   carrito: {},        // { platoId: {nombre, precio, cantidad, nota} }
   pedidos: [],
   solicitudPendiente: { llamar_mesero: false, pedir_cuenta: false },
   calificacionSeleccionada: 0, // estrellas elegidas en el modal "Pedir la cuenta"
   notasAbiertas: new Set(), // ids de items del carrito con el campo de nota ya desplegado
+  propinaPreguntada: false, // si ya se preguntó por la propina en esta sesión
+  propinaPctSeleccionado: null, // 10 | 15 | 20 | "otra" en el modal de propina inicial
+  propinaMonto: 0,
   ajustes: {},         // wifi, horario, redes, foto de portada (los pone el mesero)
   nombreCliente: null, // "¿cómo te llamamos?", para saber qué pidió cada quien en la mesa
   estadosPedidosPrevios: {}, // para avisar solo cuando un pedido RECIÉN pasa a "listo"
@@ -451,6 +523,7 @@ async function iniciar() {
     state.mesaId = String(mesaId);
     state.mesaNumero = mesa.numero ?? mesaId;
     sessionStorage.setItem("ej_mesaId", state.mesaId);
+    state.propinaPreguntada = sessionStorage.getItem(clavePropinaPreguntada()) === "1";
 
     let sesion = mesa.sesionActual;
     if (!sesion) {
@@ -533,6 +606,16 @@ function aplicarAjustesUI() {
   } else {
     portada.style.backgroundImage = "";
     patron.classList.remove("hidden");
+  }
+  // Fondo difuminado de toda la app (se sube desde el panel del mesero →
+  // Ajustes → "Imagen de fondo"). Si no hay imagen cargada, no se activa y
+  // queda el fondo negro de siempre.
+  const fondo = document.getElementById("fondoAppFoto");
+  if (a.fondoUrl) {
+    fondo.style.backgroundImage = `url("${a.fondoUrl}")`;
+    fondo.classList.add("ej-fondo-activo");
+  } else {
+    fondo.classList.remove("ej-fondo-activo");
   }
   renderInfoRestaurante();
 }
@@ -671,6 +754,7 @@ function actualizarBadgePedido() {
 function suscribirPlatos() {
   onSnapshot(rCol("platos"), (snap) => {
     state.platos = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderGridCategorias();
     renderNavCategorias();
     renderMenu();
     renderRecomendados();
@@ -703,32 +787,66 @@ function renderRecomendados() {
     btn.addEventListener("click", () => {
       const plato = state.platos.find((p) => p.id === btn.dataset.addRecomendado);
       if (!plato) return;
-      state.categoriaActiva = categoriaDe(plato);
-      renderNavCategorias();
-      renderMenu();
-      document.getElementById("contenedorCategorias").scrollIntoView({ behavior: "smooth", block: "start" });
+      mostrarPlatosCategoria(categoriaDe(plato));
     });
   });
 }
 
+// Pastillas de categorías (dentro de la pantalla de platos, para saltar de
+// una categoría a otra sin tener que volver a la grilla de categorías).
 function renderNavCategorias() {
-  const nav = document.getElementById("navCategorias");
+  const nav = document.getElementById("pillsCategorias");
   const categorias = categoriasPresentes();
-  if (!state.categoriaActiva || !categorias.includes(state.categoriaActiva)) {
-    state.categoriaActiva = categorias[0] || null;
-  }
   nav.innerHTML = categorias.map((c) => `
     <button data-cat="${encodeURIComponent(c)}" class="ej-cat-btn shrink-0 px-4 py-2 rounded-full text-xs font-display font-semibold border-2 border-jackson-negro/10 dark:border-white/15 dark:text-white min-h-[36px] flex items-center gap-1.5 ${c === state.categoriaActiva ? "ej-cat-activa border-transparent" : ""}">
       <span>${iconoCategoria(c)}</span><span>${c}</span>
     </button>`).join("");
   nav.querySelectorAll(".ej-cat-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.categoriaActiva = decodeURIComponent(btn.dataset.cat);
-      renderNavCategorias();
-      renderMenu();
-    });
+    btn.addEventListener("click", () => mostrarPlatosCategoria(decodeURIComponent(btn.dataset.cat)));
   });
 }
+
+// Grilla de categorías — la primera pantalla del Menú. El cliente tiene que
+// tocar una categoría (Bebidas, Contornos, Platos fuertes, Jugos...) antes
+// de que se despliegue ningún plato. Las categorías salen 100% de lo que el
+// mesero escriba en cada plato desde su panel; no hay nada que editar aquí.
+function renderGridCategorias() {
+  const grid = document.getElementById("gridCategorias");
+  const categorias = categoriasPresentes();
+  if (categorias.length === 0) {
+    grid.innerHTML = `<p class="col-span-2 text-center text-jackson-negro/40 dark:text-white/40 text-sm py-10">Todavía no hay categorías cargadas en el menú.</p>`;
+    return;
+  }
+  grid.innerHTML = categorias.map((c) => `
+    <button data-cat-grid="${encodeURIComponent(c)}" class="aspect-[4/3] rounded-2xl bg-white dark:bg-[#171717] shadow-sm shadow-black/[0.06] flex flex-col items-center justify-center gap-2 active:scale-[.96] transition">
+      <span class="text-jackson-rojo">${iconoCategoria(c, "w-8 h-8")}</span>
+      <span class="font-display font-semibold text-sm text-center px-2">${c}</span>
+    </button>`).join("");
+  grid.querySelectorAll("[data-cat-grid]").forEach((btn) => {
+    btn.addEventListener("click", () => mostrarPlatosCategoria(decodeURIComponent(btn.dataset.catGrid)));
+  });
+}
+
+// Transición entre las dos pantallas del Menú (categorías ↔ platos), con un
+// pequeño fundido cada vez para que el cambio se sienta intencional.
+function mostrarPlatosCategoria(cat) {
+  state.categoriaActiva = cat;
+  state.vistaMenuActual = "platos";
+  document.getElementById("vistaCategoriasMenu").classList.add("hidden");
+  const vista = document.getElementById("vistaPlatosCategoria");
+  vista.classList.remove("hidden");
+  vista.classList.remove("ej-fade-in"); void vista.offsetWidth; vista.classList.add("ej-fade-in");
+  renderNavCategorias();
+  renderMenu();
+}
+function volverACategorias() {
+  state.vistaMenuActual = "categorias";
+  document.getElementById("vistaPlatosCategoria").classList.add("hidden");
+  const vista = document.getElementById("vistaCategoriasMenu");
+  vista.classList.remove("hidden");
+  vista.classList.remove("ej-fade-in"); void vista.offsetWidth; vista.classList.add("ej-fade-in");
+}
+document.getElementById("btnVolverCategorias").addEventListener("click", volverACategorias);
 
 function tarjetaPlato(p) {
   const enCarrito = state.carrito[p.id]?.cantidad || 0;
@@ -765,13 +883,16 @@ function tarjetaPlato(p) {
 
 function renderMenu() {
   const cont = document.getElementById("contenedorCategorias");
+  if (!state.categoriaActiva) return; // todavía no se eligió ninguna categoría
   const categorias = categoriasPresentes();
 
-  if (categorias.length === 0) {
-    cont.innerHTML = `<p class="text-center text-jackson-negro/40 text-sm py-10">Todavía no hay platos cargados en el menú.</p>`;
+  if (!categorias.includes(state.categoriaActiva)) {
+    // La categoría activa ya no existe (el mesero la vació o la renombró):
+    // en vez de adivinar otra, volvemos a la grilla para que elija de nuevo.
+    state.categoriaActiva = null;
+    volverACategorias();
     return;
   }
-  if (!state.categoriaActiva || !categorias.includes(state.categoriaActiva)) state.categoriaActiva = categorias[0];
 
   const platos = state.platos.filter((p) => categoriaDe(p) === state.categoriaActiva);
   cont.innerHTML = platos.map(tarjetaPlato).join("") ||
@@ -879,8 +1000,19 @@ function renderCarrito() {
   document.getElementById("btnEnviarPedido").addEventListener("click", enviarPedido);
 }
 
-async function enviarPedido() {
+// Antes de enviar el PRIMER pedido de la visita, se pregunta una sola vez
+// si se desea dejar propina (y de cuánto). El resto de pedidos de la misma
+// visita se envían directo, sin volver a preguntar.
+function enviarPedido() {
   if (cantidadCarrito() === 0) return; // caso borde: carrito vacío
+  if (!state.propinaPreguntada) {
+    abrirModalPropinaInicial();
+    return;
+  }
+  enviarPedidoReal();
+}
+
+async function enviarPedidoReal() {
   const items = Object.entries(state.carrito).map(([platoId, it]) => ({
     platoId, nombre: it.nombre, cantidad: it.cantidad, precio: it.precio, nota: it.nota || ""
   }));
@@ -903,7 +1035,10 @@ async function enviarPedido() {
     renderMenu();
     renderCarrito();
     actualizarBadgePedido();
-    mostrarToast("¡Pedido enviado a cocina!", "check");
+    mostrarTransicionEstado({
+      icono: "check", titulo: "¡Pedido enviado!", subtitulo: "Tu pedido ya va para cocina.",
+      colorIcono: "bg-jackson-rojo/10 text-jackson-rojo"
+    });
     cambiarTab("pedido");
   } catch (e) {
     console.error("Error enviando pedido:", e);
@@ -912,6 +1047,70 @@ async function enviarPedido() {
     btn.textContent = "Enviar pedido a cocina";
   }
 }
+
+/* ------------------------------------------------------------------
+   PROPINA INICIAL — se pregunta una sola vez por sesión, justo antes de
+   enviar el primer pedido. El monto elegido se le informa al mesero de
+   una vez (si es mayor a 0); si más adelante el cliente deja otra propina
+   distinta al "Pedir la cuenta", esa más reciente es la que cuenta.
+------------------------------------------------------------------ */
+function clavePropinaPreguntada() { return "ej_propina_preguntada_" + state.mesaId; }
+
+function renderOpcionesPropina() {
+  const total = totalCarrito();
+  const cont = document.getElementById("opcionesPropina");
+  const opciones = [10, 15, 20];
+  cont.innerHTML = opciones.map((p) => `
+    <button type="button" data-propina-pct="${p}" class="border-2 rounded-xl py-2.5 text-center active:scale-95 transition ${state.propinaPctSeleccionado === p ? "border-jackson-rojo bg-jackson-rojo/5" : "border-jackson-negro/10 dark:border-white/20"}">
+      <span class="block font-display font-bold text-sm">${p}%</span>
+      <span class="block text-[9px] text-jackson-negro/40 dark:text-white/40">${fmtMoney(total * p / 100)}</span>
+    </button>`).join("") + `
+    <button type="button" data-propina-pct="otra" class="border-2 rounded-xl py-2.5 text-center active:scale-95 transition ${state.propinaPctSeleccionado === "otra" ? "border-jackson-rojo bg-jackson-rojo/5" : "border-jackson-negro/10 dark:border-white/20"}">
+      <span class="block font-display font-bold text-sm">Otra</span>
+      <span class="block text-[9px] text-jackson-negro/40 dark:text-white/40">cantidad</span>
+    </button>`;
+  cont.querySelectorAll("[data-propina-pct]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.propinaPctSeleccionado = btn.dataset.propinaPct === "otra" ? "otra" : Number(btn.dataset.propinaPct);
+      document.getElementById("inputPropinaInicialOtra").classList.toggle("hidden", state.propinaPctSeleccionado !== "otra");
+      if (state.propinaPctSeleccionado === "otra") document.getElementById("inputPropinaInicialOtra").focus();
+      renderOpcionesPropina();
+    });
+  });
+}
+
+function abrirModalPropinaInicial() {
+  state.propinaPctSeleccionado = null;
+  document.getElementById("inputPropinaInicialOtra").value = "";
+  document.getElementById("inputPropinaInicialOtra").classList.add("hidden");
+  renderOpcionesPropina();
+  document.getElementById("modalPropinaInicial").classList.remove("hidden");
+}
+
+function finalizarPropinaInicial(monto) {
+  state.propinaMonto = monto;
+  state.propinaPreguntada = true;
+  sessionStorage.setItem(clavePropinaPreguntada(), "1");
+  document.getElementById("modalPropinaInicial").classList.add("hidden");
+  const continuar = () => enviarPedidoReal();
+  if (monto > 0) {
+    crearSolicitud("propina_calificacion", { calificacion: 0, monto, comentario: "" }).catch((e) => console.error("Error guardando propina:", e)).finally(continuar);
+  } else {
+    continuar();
+  }
+}
+
+document.getElementById("btnConfirmarPropinaInicial").addEventListener("click", () => {
+  const total = totalCarrito();
+  let monto = 0;
+  if (state.propinaPctSeleccionado === "otra") {
+    monto = Number(document.getElementById("inputPropinaInicialOtra").value) || 0;
+  } else if (typeof state.propinaPctSeleccionado === "number") {
+    monto = Number((total * state.propinaPctSeleccionado / 100).toFixed(2));
+  }
+  finalizarPropinaInicial(monto);
+});
+document.getElementById("btnSinPropinaInicial").addEventListener("click", () => finalizarPropinaInicial(0));
 
 const PASOS_ESTADO = [
   { id: "nuevo", label: "Recibido" },
@@ -937,7 +1136,10 @@ function suscribirPedidos() {
       const anterior = state.estadosPedidosPrevios[p.id];
       if (anterior && anterior !== "listo" && p.estado === "listo") {
         avisarPedidoListo();
-        mostrarToast("¡Tu pedido está listo!", "platos");
+        mostrarTransicionEstado({
+          icono: "platos", titulo: "¡Tu pedido está listo!", subtitulo: "Ya te lo están sirviendo.",
+          colorIcono: "bg-emerald-500/10 text-emerald-600"
+        });
       }
       state.estadosPedidosPrevios[p.id] = p.estado;
     });
@@ -1038,6 +1240,12 @@ function cambiarTab(tab) {
   document.getElementById("vistaMenu").classList.toggle("hidden", tab !== "menu");
   document.getElementById("vistaPedido").classList.toggle("hidden", tab !== "pedido");
   document.getElementById("navInferior").classList.remove("hidden");
+  // Al entrar a Menú se respeta en qué pantalla se había quedado el cliente
+  // (categorías o los platos de una categoría), no se reinicia cada vez.
+  if (tab === "menu") {
+    if (state.vistaMenuActual === "platos" && state.categoriaActiva) mostrarPlatosCategoria(state.categoriaActiva);
+    else volverACategorias();
+  }
 }
 
 document.querySelectorAll(".ej-tab-btn").forEach((b) => b.addEventListener("click", () => cambiarTab(b.dataset.tab)));
@@ -1119,6 +1327,32 @@ document.getElementById("btnEnviarCuenta").addEventListener("click", async () =>
     document.getElementById("txtBtnEnviarCuenta").textContent = "Pedir la cuenta";
   }
 });
+
+/* ------------------------------------------------------------------
+   TRANSICIÓN DE ESTADO — pantalla breve y animada para los dos momentos
+   clave del pedido (enviado a cocina / listo para servir), en vez de un
+   simple toast que es fácil de no notar.
+------------------------------------------------------------------ */
+let transicionTimeout;
+function mostrarTransicionEstado({ icono, titulo, subtitulo, colorIcono }) {
+  document.getElementById("iconoTransicion").innerHTML = ic(icono, "w-8 h-8");
+  document.getElementById("iconoTransicion").className = `mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center ${colorIcono || "bg-jackson-rojo/10 text-jackson-rojo"}`;
+  document.getElementById("tituloTransicion").textContent = titulo || "";
+  document.getElementById("subtituloTransicion").textContent = subtitulo || "";
+
+  const pantalla = document.getElementById("pantallaTransicion");
+  const tarjeta = document.getElementById("tarjetaTransicion");
+  pantalla.classList.remove("hidden");
+  pantalla.classList.remove("ej-fade-in"); void pantalla.offsetWidth; pantalla.classList.add("ej-fade-in");
+  tarjeta.classList.remove("ej-pop-in"); void tarjeta.offsetWidth; tarjeta.classList.add("ej-pop-in");
+
+  clearTimeout(transicionTimeout);
+  transicionTimeout = setTimeout(ocultarTransicionEstado, 2800);
+}
+function ocultarTransicionEstado() {
+  document.getElementById("pantallaTransicion").classList.add("hidden");
+}
+document.getElementById("pantallaTransicion").addEventListener("click", ocultarTransicionEstado);
 
 /* ------------------------------------------------------------------
    TOAST
