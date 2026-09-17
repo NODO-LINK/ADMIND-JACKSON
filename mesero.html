@@ -133,7 +133,7 @@
        mesero ya había iniciado sesión antes, la app vuelve a entrar sola
        (sin ese toque), así que se lo pedimos una vez al abrir. -->
   <button id="avisoSonido" class="hidden w-full ej-no-print bg-jackson-rojo text-white text-xs font-display font-semibold px-4 py-2.5 text-center active:scale-[.99]">
-    🔔 Toca aquí para activar el sonido de las llamadas de tus mesas
+    <span data-icono="campana|w-3.5 h-3.5" class="inline-block mr-1 align-[-2px]"></span>Toca aquí para activar el sonido de las llamadas de tus mesas
   </button>
 
   <!-- ==========================================================
@@ -172,7 +172,7 @@
     <!-- Salón: sala rectangular con textura de piso. Cada mesa es arrastrable
          a su posición real; se guarda por mesa en Firestore (posX/posY). -->
     <div id="salonMesas" class="relative w-full max-w-3xl mx-auto aspect-[4/3] sm:aspect-[16/10] bg-jackson-crema border-4 border-jackson-negro/10 rounded-3xl ej-piso overflow-hidden shadow-inner shadow-black/[0.06]">
-      <span class="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] font-display font-semibold text-jackson-negro/25 tracking-widest pointer-events-none select-none">🚪 ENTRADA</span>
+      <span class="absolute bottom-2 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 text-[10px] font-display font-semibold text-jackson-negro/25 tracking-widest pointer-events-none select-none"><span data-icono="puerta|w-3 h-3"></span>ENTRADA</span>
       <div id="planoMesas" class="absolute inset-0"></div>
     </div>
 
@@ -205,7 +205,7 @@
 
     <div class="flex items-center justify-between mb-4 ej-no-print">
       <h2 class="font-display font-bold text-lg">Códigos QR para imprimir</h2>
-      <button id="btnImprimirQr" class="bg-jackson-negro text-white font-display font-semibold text-sm px-4 py-2.5 rounded-xl min-h-[44px] active:scale-[.97]">🖨️ Imprimir todos</button>
+      <button id="btnImprimirQr" class="bg-jackson-negro text-white font-display font-semibold text-sm px-4 py-2.5 rounded-xl min-h-[44px] active:scale-[.97] flex items-center gap-1.5"><span data-icono="impresora|w-4 h-4"></span>Imprimir todos</button>
     </div>
     <div id="hojaQr" class="grid grid-cols-2 sm:grid-cols-3 gap-6"></div>
   </section>
@@ -295,7 +295,7 @@
         <input id="platoDisponible" type="checkbox" checked> Disponible en el menú
       </label>
       <label class="flex items-center gap-2 text-sm font-display font-medium">
-        <input id="platoRecomendado" type="checkbox"> ⭐ Recomendado del chef (aparece en el carrusel destacado)
+        <input id="platoRecomendado" type="checkbox"> <span data-icono="estrella|w-3.5 h-3.5" class="inline-block align-[-2px] mr-0.5"></span>Recomendado del chef (aparece en el carrusel destacado)
       </label>
     </div>
     <div class="flex gap-2 mt-5">
@@ -326,7 +326,7 @@
     <div id="hojaTicket" class="p-6 font-body text-jackson-negro"></div>
     <div class="flex gap-2 p-4 pt-0 ej-no-print">
       <button type="button" data-cerrar="modalTicket" class="flex-1 font-display font-semibold text-sm px-4 py-3 min-h-[44px] border-2 border-jackson-negro/10 rounded-xl active:scale-[.97]">Cerrar</button>
-      <button id="btnImprimirTicket" class="flex-1 bg-jackson-rojo text-white font-display font-semibold text-sm px-4 py-3 rounded-xl min-h-[44px] active:scale-[.97] shadow-sm shadow-jackson-rojo/20">🖨️ Imprimir / Descargar</button>
+      <button id="btnImprimirTicket" class="flex-1 bg-jackson-rojo text-white font-display font-semibold text-sm px-4 py-3 rounded-xl min-h-[44px] active:scale-[.97] shadow-sm shadow-jackson-rojo/20 flex items-center justify-center gap-1.5"><span data-icono="impresora|w-4 h-4"></span>Imprimir / Descargar</button>
     </div>
   </div>
 </div>
@@ -415,6 +415,33 @@ const rCol = (...seg) => collection(db, "restaurants", RESTAURANT_ID, ...seg);
 const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
 
 /* ------------------------------------------------------------------
+   ICONOS — mismo set vectorial (silueta, un solo color) que mesa.html,
+   para que ambas apps se vean con la misma identidad y sin emojis.
+------------------------------------------------------------------ */
+const ICONOS = {
+  campana: '<path d="M18 16 V11 A6 6 0 1 0 6 11 V16 L4.5 18 H19.5 Z"/><path d="M10 20 A2 2 0 0 0 14 20"/>',
+  recibo: '<path d="M6 3 H18 V20.5 L16 19.2 L14 20.5 L12 19.2 L10 20.5 L8 19.2 L6 20.5 Z"/><path d="M9 8 H15 M9 12 H15"/>',
+  estrella: '<path d="M12 3.3 L14.4 8.2 L19.8 9 L15.9 12.8 L16.8 18.2 L12 15.7 L7.2 18.2 L8.1 12.8 L4.2 9 L9.6 8.2 Z"/>',
+  bebida: '<path d="M8 3 H16 L15.1 18.2 A2 2 0 0 1 13.1 20 H10.9 A2 2 0 0 1 8.9 18.2 Z"/><path d="M9.3 7 H14.7 M9.5 3 V1.3"/>',
+  usuario: '<circle cx="12" cy="8" r="3.4"/><path d="M4.8 20 C5.4 16 8.2 13.6 12 13.6 S18.6 16 19.2 20"/>',
+  puerta: '<rect x="6" y="2.5" width="12" height="19" rx="1"/><circle cx="14.3" cy="12" r="0.9" fill="currentColor" stroke="none"/>',
+  impresora: '<path d="M6.5 9 V4.5 H17.5 V9"/><rect x="5" y="9" width="14" height="7" rx="1"/><rect x="7.5" y="14.5" width="9" height="6"/>',
+  cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>',
+  check: '<path d="M5 13 L9 17 L19 7"/>'
+};
+function ic(nombre, cls) {
+  cls = cls || "w-4 h-4";
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls} inline-block shrink-0 align-[-0.15em]">${ICONOS[nombre] || ""}</svg>`;
+}
+function pintarIconosEstaticos() {
+  document.querySelectorAll("[data-icono]").forEach((el) => {
+    const [nombre, cls] = el.dataset.icono.split("|");
+    el.innerHTML = ic(nombre, cls);
+  });
+}
+pintarIconosEstaticos();
+
+/* ------------------------------------------------------------------
    ESTADO
 ------------------------------------------------------------------ */
 const state = {
@@ -423,6 +450,8 @@ const state = {
   pedidos: [],
   solicitudes: [],
   primerSnapshotSolicitudes: true,
+  mesasActivasPrevias: {}, // para avisar solo cuando una mesa RECIÉN se ocupa
+  primerSnapshotMesas: true,
   mesaAbiertaId: null,
   arrastrandoId: null,
   audioCtx: null,
@@ -563,8 +592,25 @@ setInterval(() => {
 ------------------------------------------------------------------ */
 function suscribirMesas() {
   onSnapshot(rCol("mesas"), (snap) => {
-    state.mesas = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (Number(a.numero) || 0) - (Number(b.numero) || 0));
+    const mesasNuevas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Avisa (sonido + toast) cuando una mesa pasa de libre a ocupada, para
+    // que el mesero sepa que llegó gente antes de que pidan algo. Se salta
+    // el primer snapshot para no sonar con las mesas que ya estaban ocupadas
+    // al abrir la app.
+    if (!state.primerSnapshotMesas) {
+      mesasNuevas.forEach((m) => {
+        const eraActiva = state.mesasActivasPrevias[m.id];
+        if (m.activa && !eraActiva) {
+          reproducirBeep();
+          mostrarToast(`Mesa ${m.numero}: nuevo cliente escaneó el código QR`, "usuario");
+        }
+      });
+    }
+    mesasNuevas.forEach((m) => { state.mesasActivasPrevias[m.id] = !!m.activa; });
+    state.primerSnapshotMesas = false;
+
+    state.mesas = mesasNuevas.sort((a, b) => (Number(a.numero) || 0) - (Number(b.numero) || 0));
     renderMesas();
     renderMesasAdmin();
   }, (err) => console.error("Error leyendo mesas:", err));
@@ -658,7 +704,7 @@ function tileMesa(m, index, total) {
       <span class="ej-silla" style="left:-9px; top:50%; transform:translateY(-50%) rotate(90deg);"></span>
       <span class="ej-silla" style="right:-9px; top:50%; transform:translateY(-50%) rotate(90deg);"></span>
       <div class="ej-mesa-tile absolute inset-0 rounded-full flex flex-col items-center justify-center select-none shadow-md shadow-black/15 ${color} ${urgente ? "ring-4 ring-jackson-rojo" : ""}">
-        ${urgente ? `<span class="ej-pulso absolute -top-1.5 -right-1.5 bg-jackson-rojo text-white text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow">${llamando ? "🔔" : "🧾"}</span>` : ""}
+        ${urgente ? `<span class="ej-pulso absolute -top-1.5 -right-1.5 bg-jackson-rojo text-white text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow">${ic(llamando ? "campana" : "recibo", "w-3.5 h-3.5")}</span>` : ""}
         <span class="font-display font-extrabold text-base sm:text-lg leading-none">${m.numero}</span>
         <span class="text-[8px] sm:text-[9px] mt-0.5 font-display font-semibold text-center leading-tight ${m.activa ? "opacity-90" : "opacity-60"}">${!m.activa ? "Libre" : (porServir > 0 ? porServir + " x servir" : "Servido")}</span>
       </div>
@@ -750,41 +796,41 @@ function contenidoDetalleMesa(m) {
   return `
     <div class="flex items-center justify-between mb-4">
       <div><p class="text-xs text-jackson-negro/40 font-display font-semibold">MESA</p><p class="font-heading text-3xl leading-none">${m.numero}</p></div>
-      <button data-cerrar="modalMesa" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center text-lg active:scale-90">✕</button>
+      <button data-cerrar="modalMesa" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center active:scale-90">${ic("cerrar", "w-4 h-4")}</button>
     </div>
 
     ${!m.activa ? `<p class="text-sm text-jackson-negro/50 bg-white rounded-xl p-4 shadow-sm shadow-black/[0.04]">Esta mesa está libre por ahora.</p>` : `
     ${(llamando || pidioCuenta) ? `<div class="flex flex-wrap gap-1.5 mb-3">
-      ${llamando ? `<button data-atender-solicitud="${llamando.id}" class="ej-pulso bg-jackson-rojo text-white text-[11px] font-display font-bold px-3 py-2 rounded-full min-h-[36px] active:scale-[.96]">🔔 Llamando — tocar para atender</button>` : ""}
-      ${pidioCuenta ? `<button data-atender-solicitud="${pidioCuenta.id}" class="ej-pulso bg-jackson-negro text-white text-[11px] font-display font-bold px-3 py-2 rounded-full min-h-[36px] active:scale-[.96]">🧾 Pidió la cuenta — tocar para atender</button>` : ""}
+      ${llamando ? `<button data-atender-solicitud="${llamando.id}" class="ej-pulso bg-jackson-rojo text-white text-[11px] font-display font-bold px-3 py-2 rounded-full min-h-[36px] active:scale-[.96] flex items-center gap-1.5">${ic("campana", "w-3.5 h-3.5")}Llamando — tocar para atender</button>` : ""}
+      ${pidioCuenta ? `<button data-atender-solicitud="${pidioCuenta.id}" class="ej-pulso bg-jackson-negro text-white text-[11px] font-display font-bold px-3 py-2 rounded-full min-h-[36px] active:scale-[.96] flex items-center gap-1.5">${ic("recibo", "w-3.5 h-3.5")}Pidió la cuenta — tocar para atender</button>` : ""}
     </div>` : ""}
 
     ${pedidos.length ? `<div class="space-y-2 mb-3">
       ${pedidos.map((p) => `
         <div class="bg-white border border-black/5 rounded-xl p-3 shadow-sm shadow-black/[0.03]">
-          ${p.clienteNombre ? `<p class="text-[10px] font-display font-bold text-jackson-negro/40 mb-1.5 uppercase tracking-wide">🙋 ${p.clienteNombre}</p>` : ""}
+          ${p.clienteNombre ? `<p class="text-[10px] font-display font-bold text-jackson-negro/40 mb-1.5 uppercase tracking-wide flex items-center gap-1">${ic("usuario", "w-3 h-3")}${p.clienteNombre}</p>` : ""}
           <ul class="text-sm mb-2 space-y-1">${(p.items || []).map((i) => `<li><div class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></div>${i.nota ? `<p class="text-[11px] text-jackson-rojo/80 italic">"${i.nota}"</p>` : ""}</li>`).join("")}</ul>
           <div class="flex items-center justify-between">
             <span class="text-xs text-jackson-negro/40">${fmtMoney(p.total)}</span>
             ${p.estado === "entregado" || p.estado === "pagado"
-              ? `<span class="text-[11px] font-display font-semibold text-green-700 bg-green-50 px-2.5 py-1.5 rounded-full">✓ Entregado</span>`
+              ? `<span class="text-[11px] font-display font-semibold text-green-700 bg-green-50 px-2.5 py-1.5 rounded-full flex items-center gap-1">${ic("check", "w-3 h-3")}Entregado</span>`
               : `<button data-avanzar-pedido="${p.id}" data-siguiente="${PASO_SIGUIENTE[p.estado] || "entregado"}" class="text-[11px] font-display font-semibold bg-jackson-crema px-3 py-1.5 rounded-full min-h-[36px] active:scale-[.96]">${PASO_LABEL[p.estado] || p.estado} → ${PASO_LABEL[PASO_SIGUIENTE[p.estado] || "entregado"]}</button>`}
           </div>
         </div>`).join("")}
     </div>` : `<p class="text-sm text-jackson-negro/40 bg-white rounded-xl p-4 mb-3 shadow-sm shadow-black/[0.04]">Todavía no han pedido nada.</p>`}
 
     ${extras.length ? `<div class="flex flex-wrap gap-1.5 mb-3">
-      ${extras.map((e) => `<button data-atender-solicitud="${e.id}" class="text-[11px] font-display font-semibold bg-jackson-crema px-3 py-1.5 rounded-full min-h-[36px] active:scale-[.96]">🥤 ${e.detalle} ✓</button>`).join("")}
+      ${extras.map((e) => `<button data-atender-solicitud="${e.id}" class="text-[11px] font-display font-semibold bg-jackson-crema px-3 py-1.5 rounded-full min-h-[36px] active:scale-[.96] flex items-center gap-1.5">${ic("bebida", "w-3.5 h-3.5")}${e.detalle}${ic("check", "w-3 h-3")}</button>`).join("")}
     </div>` : ""}
 
     <div class="bg-white rounded-xl p-4 flex items-center justify-between text-sm mb-3 shadow-sm shadow-black/[0.04]">
       <div><p class="text-[10px] text-jackson-negro/40">Total a cobrar</p><p class="font-display font-bold text-lg">${fmtMoney(total)}</p></div>
-      <div class="text-right"><p class="text-[10px] text-jackson-negro/40">Propina</p><p class="font-display font-bold text-lg">${propina ? fmtMoney(propina.detalle?.monto || 0) + (propina.detalle?.calificacion ? " · " + "⭐".repeat(propina.detalle.calificacion) : "") : "—"}</p></div>
+      <div class="text-right"><p class="text-[10px] text-jackson-negro/40">Propina</p><p class="font-display font-bold text-lg flex items-center justify-end gap-1 flex-wrap">${propina ? fmtMoney(propina.detalle?.monto || 0) + (propina.detalle?.calificacion ? " · " + ic("estrella", "w-3 h-3").repeat(propina.detalle.calificacion) : "") : "—"}</p></div>
     </div>
     ${propina?.detalle?.comentario ? `<p class="text-xs italic text-jackson-negro/50 mb-3">"${propina.detalle.comentario}"</p>` : ""}
 
     <div class="flex flex-col gap-2">
-      <button data-hacer-cierre="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20">🧾 Hacer cierre (ver / imprimir cuenta)</button>
+      <button data-hacer-cierre="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20 flex items-center justify-center gap-1.5">${ic("recibo", "w-4 h-4")}Hacer cierre (ver / imprimir cuenta)</button>
       <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98]">Mesa desocupada</button>
     </div>
     `}
@@ -904,7 +950,8 @@ function suscribirSolicitudes() {
           const s = cambio.doc.data();
           if (s.estado === "pendiente" && (s.tipo === "llamar_mesero" || s.tipo === "pedir_cuenta")) {
             reproducirBeep();
-            mostrarToast(`Mesa ${s.mesaNumero}: ${s.tipo === "llamar_mesero" ? "está llamando al mesero 🔔" : "pidió la cuenta 🧾"}`);
+            const esLlamada = s.tipo === "llamar_mesero";
+            mostrarToast(`Mesa ${s.mesaNumero}: ${esLlamada ? "está llamando al mesero" : "pidió la cuenta"}`, esLlamada ? "campana" : "recibo");
           }
         }
       });
@@ -943,13 +990,31 @@ function renderListaPlatos() {
         <p class="font-display font-semibold">${p.nombre}</p>
         <span class="font-display font-bold text-jackson-rojo text-sm whitespace-nowrap">${fmtMoney(p.precio)}</span>
       </div>
-      <p class="text-[11px] text-jackson-negro/40 mb-2">${p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"} ${p.recomendado ? "· ⭐ Recomendado" : ""}</p>
+      <p class="text-[11px] text-jackson-negro/40 mb-2 flex items-center flex-wrap gap-1">${p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"} ${p.recomendado ? `· ${ic("estrella", "w-2.5 h-2.5")} Recomendado` : ""}</p>
       <p class="text-xs text-jackson-negro/55 mb-3 line-clamp-2">${p.descripcion || ""}</p>
-      <button data-editar-plato="${p.id}" class="w-full border-2 border-jackson-negro/10 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px] active:scale-[.97]">Editar</button>
+      <div class="flex gap-2">
+        <button data-editar-plato="${p.id}" class="flex-1 border-2 border-jackson-negro/10 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px] active:scale-[.97]">Editar</button>
+        <button data-toggle-disponible="${p.id}" class="flex-1 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px] active:scale-[.97] ${p.disponible ? "bg-jackson-crema text-jackson-negro/70" : "bg-jackson-negro text-white"}">${p.disponible ? "Marcar agotado" : "Reactivar"}</button>
+      </div>
     </div>`).join("") || `<p class="text-sm text-jackson-negro/40 col-span-full py-6 text-center">Todavía no has agregado platos. Crea el primero con "+ Nuevo plato".</p>`;
 
   document.querySelectorAll("[data-editar-plato]").forEach((btn) => {
     btn.addEventListener("click", () => abrirModalPlato(state.platos.find((p) => p.id === btn.dataset.editarPlato)));
+  });
+  // Toggle rápido de disponibilidad, sin abrir el modal completo: útil para
+  // quitar un plato del menú a mitad de servicio cuando se agota.
+  document.querySelectorAll("[data-toggle-disponible]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const plato = state.platos.find((p) => p.id === btn.dataset.toggleDisponible);
+      if (!plato) return;
+      try {
+        await updateDoc(rRef("platos", plato.id), { disponible: !plato.disponible });
+        mostrarToast(plato.disponible ? "Plato marcado como agotado" : "Plato reactivado en el menú");
+      } catch (err) {
+        console.error(err);
+        mostrarToast("No se pudo actualizar el plato");
+      }
+    });
   });
 }
 
@@ -971,7 +1036,7 @@ document.getElementById("btnNuevoPlato").addEventListener("click", () => abrirMo
 
 // Cierre delegado: cubre tanto los botones/backdrops fijos (modalPlato,
 // modalTicket) como los que se re-renderizan dinámicamente dentro del
-// modal de mesa (el ✕ que se dibuja en cada contenidoDetalleMesa()).
+// modal de mesa (el botón de cerrar que se dibuja en cada contenidoDetalleMesa()).
 document.addEventListener("click", (e) => {
   const el = e.target.closest("[data-cerrar]");
   if (!el) return;
@@ -1090,9 +1155,11 @@ document.getElementById("btnImprimirQr").addEventListener("click", () => window.
    TOAST
 ------------------------------------------------------------------ */
 let toastTimeout;
-function mostrarToast(msg) {
+function mostrarToast(msg, iconoNombre) {
   const t = document.getElementById("toast");
-  t.textContent = msg;
+  t.innerHTML = iconoNombre
+    ? `<span class="inline-flex items-center gap-2 justify-center">${ic(iconoNombre, "w-4 h-4")}<span>${msg}</span></span>`
+    : msg;
   t.classList.remove("hidden");
   clearTimeout(toastTimeout);
   toastTimeout = setTimeout(() => t.classList.add("hidden"), 3200);
