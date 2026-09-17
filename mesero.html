@@ -223,6 +223,11 @@
         <input id="ajusteFotoPortada" type="url" placeholder="https://..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
         <p class="text-[10px] text-jackson-negro/40 mt-1">Una foto del ambiente del restaurante. Súbela a un hosting de imágenes y pega el link aquí. Si la dejas vacía, se usa el diseño de marca por defecto.</p>
       </div>
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">URL de imagen de fondo (toda la app del cliente)</label>
+        <input id="ajusteFondoUrl" type="url" placeholder="https://..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
+        <p class="text-[10px] text-jackson-negro/40 mt-1">Se muestra bien difuminada de fondo detrás de todo el menú del cliente (mesa.html), no solo en la portada. Si la dejas vacía, queda el fondo negro de siempre.</p>
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-display font-semibold text-jackson-negro/60">Red de wifi</label>
@@ -518,6 +523,7 @@ function suscribirAjustes() {
   onSnapshot(rRef("ajustes", "general"), (snap) => {
     const a = snap.exists() ? snap.data() : {};
     document.getElementById("ajusteFotoPortada").value = a.fotoPortadaUrl || "";
+    document.getElementById("ajusteFondoUrl").value = a.fondoUrl || "";
     document.getElementById("ajusteWifiRed").value = a.wifiRed || "";
     document.getElementById("ajusteWifiClave").value = a.wifiClave || "";
     document.getElementById("ajusteHorario").value = a.horario || "";
@@ -530,6 +536,7 @@ document.getElementById("formAjustes").addEventListener("submit", async (e) => {
   try {
     await setDoc(rRef("ajustes", "general"), {
       fotoPortadaUrl: document.getElementById("ajusteFotoPortada").value.trim(),
+      fondoUrl: document.getElementById("ajusteFondoUrl").value.trim(),
       wifiRed: document.getElementById("ajusteWifiRed").value.trim(),
       wifiClave: document.getElementById("ajusteWifiClave").value.trim(),
       horario: document.getElementById("ajusteHorario").value.trim(),
