@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
 <meta charset="UTF-8">
 <!-- Sin zoom por pellizco en toda la página (excepto dentro del visor 3D, ver más abajo) -->
@@ -97,7 +97,7 @@
 ============================================================ -->
 <div id="pantallaError" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-jackson-negro px-8">
   <div class="text-center max-w-xs">
-    <p id="iconoError" class="text-5xl mb-5">🔎</p>
+    <p id="iconoError" class="mb-5 flex justify-center text-white/70" data-icono="buscar|w-12 h-12"></p>
     <h1 id="tituloError" class="font-heading text-jackson-blanco text-2xl mb-3">Mesa no encontrada</h1>
     <p id="mensajeError" class="text-white/60 text-sm leading-relaxed">Este enlace no corresponde a ninguna mesa activa de El Jackson. Pide ayuda a un mesero para que te ubique en tu mesa.</p>
     <button id="btnReintentarError" class="hidden mt-6 bg-jackson-rojo text-white font-display font-semibold text-sm px-5 py-3 rounded-xl min-h-[44px]">Reintentar</button>
@@ -117,8 +117,7 @@
       <p class="text-[11px] text-white/50 font-body mt-1">Mesa <span id="numeroMesaTxt">–</span></p>
     </div>
     <div class="flex items-center gap-2">
-      <button id="btnInfoRestaurante" title="Wifi, horario y redes" class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base active:scale-90">ℹ️</button>
-      <button id="btnTema" title="Modo oscuro" class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center text-base active:scale-90">🌙</button>
+      <button id="btnInfoRestaurante" title="Wifi, horario y redes" class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="info|w-4 h-4"></span></button>
     </div>
   </header>
 
@@ -143,7 +142,7 @@
     <!-- Recomendados del chef: solo aparece si hay platos marcados como
          recomendados desde el panel del mesero -->
     <div id="carruselRecomendados" class="hidden px-4 pt-4">
-      <p class="font-display font-bold text-sm mb-2.5 flex items-center gap-1.5">⭐ Recomendados del chef</p>
+      <p class="font-display font-bold text-sm mb-2.5 flex items-center gap-1.5"><span data-icono="estrella|w-4 h-4"></span> Recomendados del chef</p>
       <div id="pistaRecomendados" class="ej-carrusel flex gap-3 overflow-x-auto pb-1"></div>
     </div>
 
@@ -169,20 +168,17 @@
     <div id="contenedorHistorial" class="space-y-3">
       <p id="sinPedidosTxt" class="text-sm text-jackson-negro/40 dark:text-white/40">Todavía no has enviado ningún pedido.</p>
     </div>
+
+    <!-- Pedir la cuenta: solo aparece cuando ya hay al menos un pedido
+         enviado (algo que cobrar). Al tocarlo se invita a calificar y dejar
+         propina antes de avisarle al mesero. -->
+    <div id="bloqueCuenta" class="hidden mt-6 mb-4">
+      <button id="btnPedirCuenta" class="w-full border-2 border-jackson-negro/15 dark:border-white/20 font-display font-semibold text-sm py-3.5 rounded-2xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition">
+        <span data-icono="recibo|w-4 h-4"></span><span id="txtBtnPedirCuenta">Pedir la cuenta</span>
+      </button>
+    </div>
   </section>
 
-</div>
-
-<!-- ============================================================
-     BARRA DE CARRITO — flota justo encima de la barra de navegación
-     inferior mientras hay productos sin enviar (solo en la vista Menú)
-============================================================ -->
-<div id="barraCarrito" class="hidden fixed inset-x-0 z-40 bg-jackson-negro text-white px-4 py-3 flex items-center justify-between shadow-[0_-4px_12px_rgba(0,0,0,.2)]" style="bottom:calc(56px + env(safe-area-inset-bottom));">
-  <div>
-    <p class="text-[11px] text-white/50 leading-none mb-1"><span id="cantidadCarritoTxt">0</span> producto(s)</p>
-    <p class="font-display font-bold text-lg leading-none"><span id="totalCarritoBarraTxt">$0.00</span></p>
-  </div>
-  <button id="btnIrCarrito" class="bg-jackson-rojo font-display font-semibold text-sm px-5 py-3 rounded-xl min-h-[44px] active:scale-95 transition">Ver mi pedido</button>
 </div>
 
 <!-- ============================================================
@@ -192,14 +188,14 @@
 ============================================================ -->
 <nav id="navInferior" class="hidden fixed bottom-0 inset-x-0 z-40 bg-jackson-negro text-white flex items-stretch shadow-[0_-4px_16px_rgba(0,0,0,.25)]" style="padding-bottom:env(safe-area-inset-bottom);">
   <button data-tab="menu" class="ej-tab-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] text-[11px] font-display font-semibold">
-    <span class="text-lg leading-none">🍽️</span>Menú
+    <span data-icono="platos|w-5 h-5"></span>Menú
   </button>
   <button data-tab="pedido" class="ej-tab-btn flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] text-[11px] font-display font-semibold relative">
-    <span class="text-lg leading-none">🧾</span>Mi pedido
+    <span data-icono="recibo|w-5 h-5"></span>Mi pedido
     <span id="badgePedidos" class="hidden absolute top-1 right-[24%] bg-jackson-rojo text-white text-[9px] w-4 h-4 rounded-full items-center justify-center">0</span>
   </button>
   <button id="fabLlamarMesero" class="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] text-[11px] font-display font-semibold bg-jackson-rojo/90 disabled:bg-white/5 disabled:opacity-60 transition">
-    <span class="text-lg leading-none">🔔</span><span id="fabTextoLlamar">Llamar</span>
+    <span data-icono="campana|w-5 h-5"></span><span id="fabTextoLlamar">Llamar</span>
   </button>
 </nav>
 
@@ -211,7 +207,7 @@
   <div class="relative w-full h-full flex flex-col">
     <div class="flex items-center justify-between px-4 py-3">
       <p id="tituloVisor3D" class="text-white font-display font-semibold text-sm truncate pr-3">Plato</p>
-      <button id="btnCerrarVisor3D" class="w-9 h-9 shrink-0 rounded-full bg-white/10 text-white flex items-center justify-center text-lg active:scale-90">✕</button>
+      <button id="btnCerrarVisor3D" class="w-9 h-9 shrink-0 rounded-full bg-white/10 text-white flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
     </div>
     <div id="contenedorVisor3D" class="flex-1 relative"></div>
     <p class="text-center text-white/40 text-[11px] px-6 py-3 leading-relaxed">Gira el plato con el dedo · toca "Ver en tu espacio" para verlo en AR con la cámara</p>
@@ -227,7 +223,7 @@
   <div class="relative bg-white dark:bg-[#171717] dark:text-white w-full max-w-sm rounded-3xl p-6 shadow-2xl shadow-black/30 ej-fade-in">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-display font-bold text-lg">Información</h3>
-      <button data-cerrar="modalInfo" class="w-9 h-9 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center text-lg active:scale-90">✕</button>
+      <button data-cerrar="modalInfo" class="w-9 h-9 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
     </div>
     <div id="contenidoInfo" class="space-y-4 text-sm"></div>
   </div>
@@ -240,13 +236,44 @@
 <div id="modalNombre" class="hidden fixed inset-0 z-[66] flex items-center justify-center px-6">
   <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]"></div>
   <div class="relative bg-white dark:bg-[#171717] dark:text-white w-full max-w-xs rounded-3xl p-6 text-center shadow-2xl shadow-black/30 ej-fade-in">
-    <p class="text-3xl mb-3">👋</p>
+    <p class="mb-3 flex justify-center text-jackson-rojo" data-icono="saludo|w-8 h-8"></p>
     <h3 class="font-display font-bold text-lg mb-1.5">¿Cómo te llamamos?</h3>
     <p class="text-xs text-jackson-negro/50 dark:text-white/50 mb-4 leading-relaxed">Así, si varios piden desde su celular en la misma mesa, el mesero sabe qué le corresponde a cada quien.</p>
     <form id="formNombreCliente">
-      <input id="inputNombreCliente" maxlength="20" placeholder="Tu nombre o apodo" class="w-full border-2 border-jackson-negro/10 dark:border-white/20 dark:bg-white/5 rounded-xl px-3 py-3 mb-3 min-h-[44px] text-center font-display font-semibold" required>
+      <input id="inputNombreCliente" maxlength="20" placeholder="Tu nombre o apodo" class="w-full border-2 border-jackson-negro/10 dark:border-white/20 dark:bg-white/5 rounded-xl px-3 py-3 mb-3 min-h-[44px] text-center font-display font-semibold">
       <button class="w-full bg-jackson-rojo text-white font-display font-semibold py-3 rounded-xl min-h-[44px] active:scale-[.98]">Continuar</button>
+      <button type="button" id="btnOmitirNombre" class="w-full text-jackson-negro/40 dark:text-white/40 font-display font-medium text-xs py-3 min-h-[44px]">Omitir</button>
     </form>
+  </div>
+</div>
+
+<!-- ============================================================
+     PEDIR LA CUENTA — invita a calificar la experiencia y dejar una
+     propina informativa antes de avisarle al mesero que quiere pagar.
+     Calificar es opcional: el botón siempre envía la solicitud.
+============================================================ -->
+<div id="modalCuenta" class="hidden fixed inset-0 z-[66] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-cerrar="modalCuenta"></div>
+  <div class="relative bg-white dark:bg-[#171717] dark:text-white w-full max-w-sm rounded-3xl p-6 shadow-2xl shadow-black/30 ej-fade-in">
+    <div class="flex items-center justify-between mb-1">
+      <h3 class="font-display font-bold text-lg">¿Cómo estuvo todo?</h3>
+      <button data-cerrar="modalCuenta" class="w-9 h-9 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
+    </div>
+    <p class="text-xs text-jackson-negro/50 dark:text-white/50 mb-4 leading-relaxed">Tu opinión es opcional, pero nos ayuda mucho. Al enviar, avisamos a tu mesero para que te traiga la cuenta.</p>
+    <div id="estrellasCalificacion" class="flex items-center justify-center gap-2 mb-2"></div>
+    <button type="button" id="btnMostrarExtraCuenta" class="block mx-auto text-[11px] font-display font-semibold text-jackson-rojo mb-1">+ Agregar propina o comentario</button>
+    <div id="bloqueExtraCuenta" class="hidden">
+      <div class="mb-3 mt-3">
+        <label class="text-xs font-display font-semibold text-jackson-negro/60 dark:text-white/50">Propina (opcional)</label>
+        <input id="inputPropina" type="number" min="0" step="0.5" placeholder="$0.00" class="w-full border-2 border-jackson-negro/10 dark:border-white/20 dark:bg-white/5 rounded-xl px-3 py-3 mt-1 min-h-[44px]">
+        <p class="text-[10px] text-jackson-negro/40 dark:text-white/40 mt-1">Informativa: se suma a tu cuenta y el mesero la recibe; el cobro se hace en el local.</p>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs font-display font-semibold text-jackson-negro/60 dark:text-white/50">Comentario (opcional)</label>
+        <textarea id="inputComentarioCuenta" maxlength="140" rows="2" placeholder="Cuéntanos algo sobre tu visita" class="w-full border-2 border-jackson-negro/10 dark:border-white/20 dark:bg-white/5 rounded-xl px-3 py-2.5 mt-1 resize-none"></textarea>
+      </div>
+    </div>
+    <button id="btnEnviarCuenta" class="w-full mt-2 bg-jackson-rojo disabled:bg-jackson-negro/15 disabled:cursor-not-allowed text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-2 transition"><span data-icono="recibo|w-4 h-4"></span><span id="txtBtnEnviarCuenta">Pedir la cuenta</span></button>
   </div>
 </div>
 
@@ -289,6 +316,56 @@ const db = getFirestore(app);
 const rRef = (...seg) => doc(db, "restaurants", RESTAURANT_ID, ...seg);
 const rCol = (...seg) => collection(db, "restaurants", RESTAURANT_ID, ...seg);
 
+/* ------------------------------------------------------------------
+   ICONOS — set único de iconos vectoriales (silueta, un solo color,
+   heredan el color del texto) que reemplaza todos los emojis de la app.
+   Un solo lugar para mantenerlos y que se vean iguales en toda la carta.
+------------------------------------------------------------------ */
+const ICONOS = {
+  campana: '<path d="M18 16 V11 A6 6 0 1 0 6 11 V16 L4.5 18 H19.5 Z"/><path d="M10 20 A2 2 0 0 0 14 20"/>',
+  recibo: '<path d="M6 3 H18 V20.5 L16 19.2 L14 20.5 L12 19.2 L10 20.5 L8 19.2 L6 20.5 Z"/><path d="M9 8 H15 M9 12 H15"/>',
+  platos: '<path d="M7 2 V8 M9 2 V8 M11 2 V8 M9 8 V21"/><path d="M16 2 C14.2 4.6 14.2 7.8 16 9.6 C16.6 10.2 17 9.4 17 8.2 V2 M17 9.5 V21"/>',
+  estrella: '<path d="M12 3.3 L14.4 8.2 L19.8 9 L15.9 12.8 L16.8 18.2 L12 15.7 L7.2 18.2 L8.1 12.8 L4.2 9 L9.6 8.2 Z"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11 V16.5"/><circle cx="12" cy="7.7" r="1" fill="currentColor" stroke="none"/>',
+  buscar: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M19.5 19.5 L15.2 15.2"/>',
+  saludo: '<path d="M9 12 V6 A1.5 1.5 0 0 1 12 6 V11"/><path d="M12 11 V5 A1.5 1.5 0 0 1 15 5 V11"/><path d="M15 11.5 V7.5 A1.5 1.5 0 0 1 18 7.5 V15 C18 18.6 15.1 21.5 11.5 21.5 H10.9 C8.7 21.5 7 20 5.8 18 L4.2 15.3 C3.7 14.4 4 13.3 4.9 12.8 C5.7 12.4 6.6 12.6 7.2 13.3 L9 16"/>',
+  ensalada: '<path d="M5 19 C13.5 19 19.5 13 19.5 4.5 C11 4.5 5 10.5 5 19 Z"/><path d="M7 17 C10 13.5 13.5 10 18 6.5"/>',
+  fuego: '<path d="M12 3 C13 6.2 9.2 7.6 9.2 11.4 A3.8 3.8 0 0 0 13 15.2 A3 3 0 0 0 15.8 11.1 C16.8 11.6 17.5 13 17.5 14.5 A5.5 5.5 0 1 1 8 10.4 C8 7.3 10 5 12 3 Z"/>',
+  guarnicion: '<path d="M4 12 H20 A8 8 0 0 1 4 12 Z"/><path d="M9 12 C9 9.8 9.8 7.5 12 7.5 S15 9.8 15 12"/>',
+  bebida: '<path d="M8 3 H16 L15.1 18.2 A2 2 0 0 1 13.1 20 H10.9 A2 2 0 0 1 8.9 18.2 Z"/><path d="M9.3 7 H14.7 M9.5 3 V1.3"/>',
+  postre: '<path d="M4 20 H20"/><path d="M5.2 20 L6.2 11.7 A2 2 0 0 1 8.2 10 H15.8 A2 2 0 0 1 17.8 11.7 L18.8 20"/><path d="M4 14 H20"/><path d="M12 10.5 V6.8 A1.6 1.6 0 1 1 13.6 5.2"/>',
+  cubo3d: '<path d="M12 2 L3.5 7 V17 L12 22 L20.5 17 V7 Z"/><path d="M3.5 7 L12 12 L20.5 7 M12 12 V22"/>',
+  camara: '<path d="M4 8 H7.3 L9 6 H15 L16.7 8 H20 A1 1 0 0 1 21 9 V18 A1 1 0 0 1 20 19 H4 A1 1 0 0 1 3 18 V9 A1 1 0 0 1 4 8 Z"/><circle cx="12" cy="13.2" r="3.4"/>',
+  carrito: '<path d="M3 4 H5.2 L7.6 16.4 A2 2 0 0 0 9.6 18 H16.8 A2 2 0 0 0 18.8 16.4 L21 8 H6.2"/><circle cx="9.5" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/>',
+  check: '<path d="M5 13 L9 17 L19 7"/>',
+  wifi: '<path d="M3.5 9 A13 13 0 0 1 20.5 9"/><path d="M6.3 12.5 A9 9 0 0 1 17.7 12.5"/><path d="M9.2 16 A4.6 4.6 0 0 1 14.8 16"/><circle cx="12" cy="19.2" r="1" fill="currentColor" stroke="none"/>',
+  reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5 V12 L15.3 14"/>',
+  telefono: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.3 H13"/>',
+  cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>'
+};
+function ic(nombre, cls) {
+  cls = cls || "w-4 h-4";
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls} inline-block shrink-0 align-[-0.15em]">${ICONOS[nombre] || ""}</svg>`;
+}
+// Variante rellena/vacía de la estrella, para el selector de calificación
+// (la de ICONOS es la de contorno que se usa en insignias y textos).
+const PATH_ESTRELLA = "M12 3.3 L14.4 8.2 L19.8 9 L15.9 12.8 L16.8 18.2 L12 15.7 L7.2 18.2 L8.1 12.8 L4.2 9 L9.6 8.2 Z";
+function svgEstrella(llena, cls) {
+  cls = cls || "w-7 h-7";
+  return llena
+    ? `<svg viewBox="0 0 24 24" fill="currentColor" class="${cls} inline-block shrink-0"><path d="${PATH_ESTRELLA}"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="${cls} inline-block shrink-0"><path d="${PATH_ESTRELLA}"/></svg>`;
+}
+// Pinta los iconos que viven en HTML estático (no generado por JS) apenas
+// carga el script, para que se vean incluso si Firestore tarda o falla.
+function pintarIconosEstaticos() {
+  document.querySelectorAll("[data-icono]").forEach((el) => {
+    const [nombre, cls] = el.dataset.icono.split("|");
+    el.innerHTML = ic(nombre, cls);
+  });
+}
+pintarIconosEstaticos();
+
 /* Modelos 3D de muestra (CC0, sample-models oficiales de Khronos) usados
    como relleno mientras se cargan los modelos reales de El Jackson. */
 const MODELOS_DEMO = {
@@ -304,10 +381,10 @@ const MODELOS_DEMO = {
    categoría nueva que no esté en esta lista se agrega al final. */
 const ORDEN_SUGERIDO_CATEGORIAS = ["Entradas", "Parrillas", "Platos fuertes", "Contornos", "Bebidas", "Postres"];
 const ICONO_POR_CATEGORIA = {
-  "Entradas": "🥗", "Parrillas": "🔥", "Platos fuertes": "🍽️",
-  "Contornos": "🥔", "Bebidas": "🥤", "Postres": "🍰"
+  "Entradas": "ensalada", "Parrillas": "fuego", "Platos fuertes": "platos",
+  "Contornos": "guarnicion", "Bebidas": "bebida", "Postres": "postre"
 };
-function iconoCategoria(nombre) { return ICONO_POR_CATEGORIA[nombre] || "🍴"; }
+function iconoCategoria(nombre) { return ic(ICONO_POR_CATEGORIA[nombre] || "platos", "w-3.5 h-3.5"); }
 function categoriaDe(p) { return (p.categoria || "").trim() || "Otros"; }
 function categoriasPresentes() {
   const vistas = [...new Set(state.platos.map(categoriaDe))];
@@ -334,7 +411,9 @@ const state = {
   categoriaActiva: null,
   carrito: {},        // { platoId: {nombre, precio, cantidad, nota} }
   pedidos: [],
-  solicitudPendiente: { llamar_mesero: false },
+  solicitudPendiente: { llamar_mesero: false, pedir_cuenta: false },
+  calificacionSeleccionada: 0, // estrellas elegidas en el modal "Pedir la cuenta"
+  notasAbiertas: new Set(), // ids de items del carrito con el campo de nota ya desplegado
   ajustes: {},         // wifi, horario, redes, foto de portada (los pone el mesero)
   nombreCliente: null, // "¿cómo te llamamos?", para saber qué pidió cada quien en la mesa
   estadosPedidosPrevios: {}, // para avisar solo cuando un pedido RECIÉN pasa a "listo"
@@ -392,7 +471,6 @@ async function iniciar() {
     document.getElementById("numeroMesaPortada").textContent = state.mesaNumero;
 
     cargarCarritoLocal();
-    aplicarTema();
     suscribirAjustes();
     suscribirPlatos();
     suscribirPedidos();
@@ -404,7 +482,7 @@ async function iniciar() {
     clearTimeout(avisoLento);
     console.error("Error iniciando la mesa:", e);
     mostrarErrorMesa({
-      icono: "📶",
+      icono: "wifi",
       titulo: "No se pudo conectar",
       mensaje: "Tu conexión a internet está fallando o tardando demasiado. Revisa el wifi/datos e intenta de nuevo.",
       reintentar: true
@@ -416,7 +494,7 @@ function mostrarErrorMesa(opts) {
   document.getElementById("pantallaCarga").classList.add("hidden");
   document.getElementById("pantallaError").classList.remove("hidden");
   if (opts) {
-    if (opts.icono) document.getElementById("iconoError").textContent = opts.icono;
+    if (opts.icono) document.getElementById("iconoError").innerHTML = ic(opts.icono, "w-12 h-12");
     if (opts.titulo) document.getElementById("tituloError").textContent = opts.titulo;
     if (opts.mensaje) document.getElementById("mensajeError").textContent = opts.mensaje;
     const btn = document.getElementById("btnReintentarError");
@@ -430,19 +508,9 @@ function mostrarApp() {
 }
 
 /* ------------------------------------------------------------------
-   MODO OSCURO — preferencia guardada por celular (no por mesa)
+   MODO OSCURO — siempre activo (clase "dark" fija en el <html>, ver
+   <head>). Ya no es una preferencia que el cliente pueda apagar.
 ------------------------------------------------------------------ */
-function aplicarTema() {
-  const oscuro = localStorage.getItem("ej_tema") === "oscuro";
-  document.documentElement.classList.toggle("dark", oscuro);
-  const btn = document.getElementById("btnTema");
-  if (btn) btn.textContent = oscuro ? "☀️" : "🌙";
-}
-document.getElementById("btnTema").addEventListener("click", () => {
-  const oscuroAhora = document.documentElement.classList.toggle("dark");
-  localStorage.setItem("ej_tema", oscuroAhora ? "oscuro" : "claro");
-  document.getElementById("btnTema").textContent = oscuroAhora ? "☀️" : "🌙";
-});
 
 /* ------------------------------------------------------------------
    AJUSTES DEL RESTAURANTE (foto de portada, wifi, horario, redes)
@@ -468,18 +536,21 @@ function aplicarAjustesUI() {
   }
   renderInfoRestaurante();
 }
+function filaInfo(iconoNombre, etiqueta, valor) {
+  return `
+      <div>
+        <p class="text-[11px] font-display font-semibold text-jackson-negro/40 dark:text-white/40 mb-0.5 flex items-center gap-1">${ic(iconoNombre, "w-3 h-3")}${etiqueta}</p>
+        <p class="font-medium leading-relaxed">${valor}</p>
+      </div>`;
+}
 function renderInfoRestaurante() {
   const a = state.ajustes || {};
   const filas = [];
-  if (a.horario) filas.push(["🕐 Horario", a.horario]);
-  if (a.wifiRed) filas.push(["📶 Wifi", a.wifiClave ? `${a.wifiRed} — clave: ${a.wifiClave}` : a.wifiRed]);
-  if (a.redesSociales) filas.push(["📱 Síguenos", a.redesSociales]);
+  if (a.horario) filas.push(filaInfo("reloj", "Horario", a.horario));
+  if (a.wifiRed) filas.push(filaInfo("wifi", "Wifi", a.wifiClave ? `${a.wifiRed} — clave: ${a.wifiClave}` : a.wifiRed));
+  if (a.redesSociales) filas.push(filaInfo("telefono", "Síguenos", a.redesSociales));
   document.getElementById("contenidoInfo").innerHTML = filas.length
-    ? filas.map(([label, valor]) => `
-      <div>
-        <p class="text-[11px] font-display font-semibold text-jackson-negro/40 dark:text-white/40 mb-0.5">${label}</p>
-        <p class="font-medium leading-relaxed">${valor}</p>
-      </div>`).join("")
+    ? filas.join("")
     : `<p class="text-sm text-jackson-negro/40 dark:text-white/40">El restaurante todavía no ha cargado esta información.</p>`;
 }
 document.getElementById("btnInfoRestaurante").addEventListener("click", () => {
@@ -495,14 +566,17 @@ function pedirNombreClienteSiFalta() {
   if (guardado) { state.nombreCliente = guardado; return; }
   document.getElementById("modalNombre").classList.remove("hidden");
 }
-document.getElementById("formNombreCliente").addEventListener("submit", (e) => {
-  e.preventDefault();
-  const input = document.getElementById("inputNombreCliente");
-  const nombre = input.value.trim() || "Comensal";
+function guardarNombreCliente(nombre) {
   state.nombreCliente = nombre;
   localStorage.setItem("ej_nombre_cliente", nombre);
   document.getElementById("modalNombre").classList.add("hidden");
+}
+document.getElementById("formNombreCliente").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const input = document.getElementById("inputNombreCliente");
+  guardarNombreCliente(input.value.trim() || "Comensal");
 });
+document.getElementById("btnOmitirNombre").addEventListener("click", () => guardarNombreCliente("Comensal"));
 
 /* ------------------------------------------------------------------
    AVISO SONORO/VIBRACIÓN CUANDO EL PLATO ESTÁ LISTO
@@ -558,7 +632,7 @@ function agregarAlCarrito(plato) {
   guardarCarritoLocal();
   renderMenu();
   renderCarrito();
-  actualizarBarraCarrito();
+  actualizarBadgePedido();
 }
 function cambiarCantidadCarrito(platoId, delta) {
   const item = state.carrito[platoId];
@@ -568,7 +642,7 @@ function cambiarCantidadCarrito(platoId, delta) {
   guardarCarritoLocal();
   renderMenu();
   renderCarrito();
-  actualizarBarraCarrito();
+  actualizarBadgePedido();
 }
 
 function totalCarrito() {
@@ -578,13 +652,17 @@ function cantidadCarrito() {
   return Object.values(state.carrito).reduce((acc, i) => acc + i.cantidad, 0);
 }
 
-function actualizarBarraCarrito() {
-  const barra = document.getElementById("barraCarrito");
-  const cant = cantidadCarrito();
-  document.getElementById("cantidadCarritoTxt").textContent = cant;
-  document.getElementById("totalCarritoBarraTxt").textContent = fmtMoney(totalCarrito());
-  const vistaMenuVisible = !document.getElementById("vistaMenu").classList.contains("hidden");
-  barra.classList.toggle("hidden", cant === 0 || !vistaMenuVisible);
+// Un solo indicador en la pestaña "Mi pedido" (en vez de la barra flotante
+// que había antes, que duplicaba esta misma información): mientras haya
+// productos sin enviar muestra esa cantidad; si ya se enviaron y el carrito
+// quedó vacío, muestra cuántos pedidos están en curso en cocina.
+function actualizarBadgePedido() {
+  const badge = document.getElementById("badgePedidos");
+  const enCarrito = cantidadCarrito();
+  const valor = enCarrito > 0 ? enCarrito : state.pedidos.length;
+  badge.textContent = valor;
+  badge.classList.toggle("hidden", valor === 0);
+  badge.classList.toggle("flex", valor > 0);
 }
 
 /* ------------------------------------------------------------------
@@ -667,9 +745,9 @@ function tarjetaPlato(p) {
   <div class="bg-white dark:bg-[#171717] rounded-2xl shadow-sm shadow-black/[0.04] overflow-hidden mb-4 ${!p.disponible ? "opacity-50" : ""}">
     <div class="relative aspect-[4/3]">
       <img src="${imagen}" alt="${p.nombre || ""}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='${imagenFallback}'">
-      ${p.recomendado ? `<span class="absolute bottom-2 left-2 bg-jackson-rojo text-white text-[10px] font-display font-semibold px-2.5 py-1 rounded-full">⭐ Recomendado</span>` : ""}
+      ${p.recomendado ? `<span class="absolute bottom-2 left-2 bg-jackson-rojo text-white text-[10px] font-display font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">${ic("estrella", "w-3 h-3")}Recomendado</span>` : ""}
       ${!p.disponible ? `<span class="absolute top-2 left-2 bg-jackson-negro text-white text-[10px] font-display font-semibold px-2.5 py-1 rounded-full">No disponible</span>` : ""}
-      ${tieneModelo3d && p.disponible ? `<button data-ver3d="${p.id}" class="absolute top-2 right-2 bg-jackson-negro/90 text-white text-[11px] font-display font-semibold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-lg active:scale-95">🧊 Ver en 3D</button>` : ""}
+      ${tieneModelo3d && p.disponible ? `<button data-ver3d="${p.id}" class="absolute top-2 right-2 bg-jackson-negro/90 text-white text-[11px] font-display font-semibold px-3 py-2 rounded-full flex items-center gap-1.5 shadow-lg active:scale-95">${ic("cubo3d", "w-3.5 h-3.5")}Ver en 3D</button>` : ""}
     </div>
     <div class="p-4">
       <div class="flex justify-between items-start gap-3">
@@ -730,7 +808,7 @@ function abrirVisor3D(plato) {
     <model-viewer id="mvVisor3D" src="${modelo}" ar ar-modes="webxr scene-viewer quick-look" camera-controls auto-rotate shadow-intensity="0.9" exposure="0.95"
       style="width:100%;height:100%;touch-action:none;background:#111111" reveal="auto">
       <div slot="progress-bar"></div>
-      <button slot="ar-button" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-jackson-rojo text-white text-sm font-display font-semibold px-5 py-3 rounded-full flex items-center gap-2 shadow-lg active:scale-95">📷 Ver en tu espacio</button>
+      <button slot="ar-button" class="absolute bottom-6 left-1/2 -translate-x-1/2 bg-jackson-rojo text-white text-sm font-display font-semibold px-5 py-3 rounded-full flex items-center gap-2 shadow-lg active:scale-95">${ic("camara", "w-4 h-4")}Ver en tu espacio</button>
     </model-viewer>`;
   document.getElementById("modalVisor3D").classList.remove("hidden");
   document.getElementById("mvVisor3D")?.addEventListener("error", () => {
@@ -751,7 +829,7 @@ function renderCarrito() {
   const items = Object.entries(state.carrito);
   if (items.length === 0) {
     cont.innerHTML = `<div class="text-center py-8 bg-white dark:bg-[#171717] rounded-2xl">
-      <p class="text-3xl mb-2">🛒</p>
+      <p class="mb-2 flex justify-center text-jackson-negro/30 dark:text-white/25">${ic("carrito", "w-8 h-8")}</p>
       <p class="text-sm text-jackson-negro/45 dark:text-white/45">Tu carrito está vacío. Agrega platos desde el menú.</p>
     </div>`;
     return;
@@ -770,7 +848,9 @@ function renderCarrito() {
             <button data-mas="${id}" class="w-8 h-8 rounded-full border-2 border-jackson-negro/15 dark:border-white/20 font-bold active:scale-90 transition">+</button>
           </div>
         </div>
-        <input data-nota="${id}" value="${it.nota || ""}" maxlength="80" placeholder="+ Nota especial (ej: sin cebolla)" class="w-full mt-2 text-xs bg-jackson-crema dark:bg-white/10 rounded-lg px-3 py-2 placeholder:text-jackson-negro/35 dark:placeholder:text-white/35">
+        ${(it.nota || state.notasAbiertas.has(id))
+          ? `<input data-nota="${id}" value="${it.nota || ""}" maxlength="80" placeholder="Nota especial (ej: sin cebolla)" class="w-full mt-2 text-xs bg-jackson-crema dark:bg-white/10 rounded-lg px-3 py-2 placeholder:text-jackson-negro/35 dark:placeholder:text-white/35">`
+          : `<button type="button" data-abrir-nota="${id}" class="mt-1.5 text-[11px] font-medium text-jackson-negro/40 dark:text-white/40">+ Agregar nota</button>`}
       </div>`).join("")}
   </div>
   <div class="flex items-center justify-between px-1 mt-4 mb-4">
@@ -787,6 +867,13 @@ function renderCarrito() {
       if (!item) return;
       item.nota = input.value.trim();
       guardarCarritoLocal();
+    });
+  });
+  cont.querySelectorAll("[data-abrir-nota]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.notasAbiertas.add(btn.dataset.abrirNota);
+      renderCarrito();
+      document.querySelector(`[data-nota="${btn.dataset.abrirNota}"]`)?.focus();
     });
   });
   document.getElementById("btnEnviarPedido").addEventListener("click", enviarPedido);
@@ -815,8 +902,8 @@ async function enviarPedido() {
     guardarCarritoLocal();
     renderMenu();
     renderCarrito();
-    actualizarBarraCarrito();
-    mostrarToast("¡Pedido enviado a cocina! 🎉");
+    actualizarBadgePedido();
+    mostrarToast("¡Pedido enviado a cocina!", "check");
     cambiarTab("pedido");
   } catch (e) {
     console.error("Error enviando pedido:", e);
@@ -850,7 +937,7 @@ function suscribirPedidos() {
       const anterior = state.estadosPedidosPrevios[p.id];
       if (anterior && anterior !== "listo" && p.estado === "listo") {
         avisarPedidoListo();
-        mostrarToast("🍽️ ¡Tu pedido está listo!");
+        mostrarToast("¡Tu pedido está listo!", "platos");
       }
       state.estadosPedidosPrevios[p.id] = p.estado;
     });
@@ -861,15 +948,13 @@ function suscribirPedidos() {
 
 function renderHistorial() {
   const cont = document.getElementById("contenedorHistorial");
-  const badge = document.getElementById("badgePedidos");
+  // "Pedir la cuenta" solo tiene sentido si ya hay algo enviado a cocina.
+  document.getElementById("bloqueCuenta").classList.toggle("hidden", state.pedidos.length === 0);
+  actualizarBadgePedido();
   if (state.pedidos.length === 0) {
     cont.innerHTML = `<p class="text-sm text-jackson-negro/40 dark:text-white/40">Todavía no has enviado ningún pedido.</p>`;
-    badge.classList.add("hidden");
     return;
   }
-  badge.classList.remove("hidden");
-  badge.classList.add("flex");
-  badge.textContent = state.pedidos.length;
 
   cont.innerHTML = state.pedidos.map((p) => {
     const paso = indicePaso(p.estado);
@@ -913,7 +998,9 @@ function suscribirSolicitudes() {
   onSnapshot(q, (snap) => {
     const solicitudes = snap.docs.map((d) => d.data());
     state.solicitudPendiente.llamar_mesero = solicitudes.some((s) => s.tipo === "llamar_mesero" && s.estado === "pendiente");
+    state.solicitudPendiente.pedir_cuenta = solicitudes.some((s) => s.tipo === "pedir_cuenta" && s.estado === "pendiente");
     actualizarEstadoFabLlamar();
+    actualizarEstadoBtnCuenta();
   }, (err) => console.error("Error leyendo solicitudes:", err));
 }
 
@@ -922,6 +1009,13 @@ function actualizarEstadoFabLlamar() {
   if (!fab) return;
   fab.disabled = state.solicitudPendiente.llamar_mesero;
   document.getElementById("fabTextoLlamar").textContent = state.solicitudPendiente.llamar_mesero ? "Mesero en camino..." : "Llamar al mesero";
+}
+
+function actualizarEstadoBtnCuenta() {
+  const btn = document.getElementById("btnPedirCuenta");
+  if (!btn) return;
+  btn.disabled = state.solicitudPendiente.pedir_cuenta;
+  document.getElementById("txtBtnPedirCuenta").textContent = state.solicitudPendiente.pedir_cuenta ? "Cuenta solicitada..." : "Pedir la cuenta";
 }
 
 async function crearSolicitud(tipo, detalle = null) {
@@ -944,12 +1038,10 @@ function cambiarTab(tab) {
   document.getElementById("vistaMenu").classList.toggle("hidden", tab !== "menu");
   document.getElementById("vistaPedido").classList.toggle("hidden", tab !== "pedido");
   document.getElementById("navInferior").classList.remove("hidden");
-  actualizarBarraCarrito();
 }
 
 document.querySelectorAll(".ej-tab-btn").forEach((b) => b.addEventListener("click", () => cambiarTab(b.dataset.tab)));
 document.getElementById("btnVerMenu").addEventListener("click", () => cambiarTab("menu"));
-document.getElementById("btnIrCarrito").addEventListener("click", () => cambiarTab("pedido"));
 
 // Cierre delegado de modales simples (info del restaurante, etc.)
 document.addEventListener("click", (e) => {
@@ -965,7 +1057,7 @@ document.getElementById("fabLlamarMesero").addEventListener("click", async () =>
   if (state.solicitudPendiente.llamar_mesero) return; // evita dobles toques
   try {
     await crearSolicitud("llamar_mesero");
-    mostrarToast("🔔 Tu mesero fue notificado");
+    mostrarToast("Tu mesero fue notificado", "campana");
   } catch (e) {
     console.error("Error llamando al mesero:", e);
     mostrarToast("No se pudo avisar al mesero, intenta de nuevo");
@@ -973,12 +1065,70 @@ document.getElementById("fabLlamarMesero").addEventListener("click", async () =>
 });
 
 /* ------------------------------------------------------------------
+   PEDIR LA CUENTA — abre un modal para calificar (opcional) y dejar una
+   propina informativa antes de avisarle al mesero que se quiere pagar.
+------------------------------------------------------------------ */
+function renderEstrellasCalificacion() {
+  const cont = document.getElementById("estrellasCalificacion");
+  cont.innerHTML = [1, 2, 3, 4, 5].map((n) => `
+    <button type="button" data-estrella="${n}" class="active:scale-90 transition ${n <= state.calificacionSeleccionada ? "text-jackson-rojo" : "text-jackson-negro/20 dark:text-white/20"}">${svgEstrella(n <= state.calificacionSeleccionada, "w-7 h-7")}</button>`).join("");
+  cont.querySelectorAll("[data-estrella]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.calificacionSeleccionada = Number(btn.dataset.estrella);
+      renderEstrellasCalificacion();
+    });
+  });
+}
+
+document.getElementById("btnPedirCuenta").addEventListener("click", () => {
+  if (state.solicitudPendiente.pedir_cuenta) return;
+  state.calificacionSeleccionada = 0;
+  document.getElementById("inputPropina").value = "";
+  document.getElementById("inputComentarioCuenta").value = "";
+  document.getElementById("bloqueExtraCuenta").classList.add("hidden");
+  document.getElementById("btnMostrarExtraCuenta").classList.remove("hidden");
+  renderEstrellasCalificacion();
+  document.getElementById("modalCuenta").classList.remove("hidden");
+});
+document.getElementById("btnMostrarExtraCuenta").addEventListener("click", () => {
+  document.getElementById("bloqueExtraCuenta").classList.remove("hidden");
+  document.getElementById("btnMostrarExtraCuenta").classList.add("hidden");
+});
+
+document.getElementById("btnEnviarCuenta").addEventListener("click", async () => {
+  const btn = document.getElementById("btnEnviarCuenta");
+  const monto = Number(document.getElementById("inputPropina").value) || 0;
+  const comentario = document.getElementById("inputComentarioCuenta").value.trim();
+  const calificacion = state.calificacionSeleccionada;
+  btn.disabled = true;
+  document.getElementById("txtBtnEnviarCuenta").textContent = "Enviando...";
+  try {
+    // Solo se guarda la calificación/propina si el cliente dejó algo; el
+    // aviso de "pedir la cuenta" se envía siempre.
+    if (calificacion > 0 || monto > 0 || comentario) {
+      await crearSolicitud("propina_calificacion", { calificacion, monto, comentario });
+    }
+    await crearSolicitud("pedir_cuenta");
+    document.getElementById("modalCuenta").classList.add("hidden");
+    mostrarToast("Pediste la cuenta, tu mesero la trae enseguida", "recibo");
+  } catch (e) {
+    console.error("Error pidiendo la cuenta:", e);
+    mostrarToast("No se pudo enviar, intenta de nuevo");
+  } finally {
+    btn.disabled = false;
+    document.getElementById("txtBtnEnviarCuenta").textContent = "Pedir la cuenta";
+  }
+});
+
+/* ------------------------------------------------------------------
    TOAST
 ------------------------------------------------------------------ */
 let toastTimeout;
-function mostrarToast(msg) {
+function mostrarToast(msg, iconoNombre) {
   const t = document.getElementById("toast");
-  t.textContent = msg;
+  t.innerHTML = iconoNombre
+    ? `<span class="inline-flex items-center gap-2 justify-center">${ic(iconoNombre, "w-4 h-4")}<span>${msg}</span></span>`
+    : msg;
   t.classList.remove("hidden");
   t.classList.remove("ej-toast-anim");
   void t.offsetWidth; // reinicia la animación si se llama seguido
