@@ -188,6 +188,25 @@
 </div>
 
 <!-- ============================================================
+     SESIÓN FINALIZADA — el mesero marcó esta mesa como liberada
+     (desocupada) mientras esta misma página seguía abierta en el
+     celular de un cliente anterior. En vez de dejarlo seguir pidiendo
+     como si nada (lo que mezclaría su pedido viejo con el del próximo
+     cliente), se bloquea toda la app con esta pantalla y se le pide
+     escanear el código QR de la mesa de nuevo. Va por encima de
+     absolutamente todo (hasta de la pantalla de transición), y una vez
+     que aparece ya no hay vuelta atrás: no tiene botón para "seguir".
+============================================================ -->
+<div id="pantallaSesionFinalizada" class="hidden fixed inset-0 z-[96] flex items-center justify-center bg-jackson-negro px-8">
+  <div class="text-center max-w-xs ej-modal-pop">
+    <p class="mb-5 flex justify-center text-jackson-rojo" data-icono="camara|w-12 h-12"></p>
+    <h1 class="font-heading text-jackson-blanco text-2xl mb-3">Mesa liberada</h1>
+    <p class="text-white/60 text-sm leading-relaxed">Esta mesa ya se preparó para un nuevo cliente, así que esta sesión terminó.</p>
+    <p class="text-white/60 text-sm leading-relaxed mt-2">Escanea el código QR de la mesa nuevamente para volver a ver el menú y pedir.</p>
+  </div>
+</div>
+
+<!-- ============================================================
      APP PRINCIPAL
 ============================================================ -->
 <div id="app" class="hidden pb-40">
@@ -597,11 +616,22 @@ async function iniciar() {
     state.sesion = sesion;
 
     // Si el mesero "desocupa" la mesa mientras el cliente sigue con la página
-    // abierta (ya se fue / cambió de sesión), refrescamos para no arrastrar
-    // pedidos de una sesión vieja hacia la mesa siguiente.
+    // abierta (ya se fue / dejó la pestaña olvidada), NO lo dejamos seguir
+    // pidiendo como si nada — eso mezclaría su pedido viejo con el del
+    // próximo cliente. Se bloquea toda la app y se le pide escanear el QR
+    // de nuevo. Doble chequeo: en tiempo real (onSnapshot) y, por si el
+    // celular tenía la pestaña en segundo plano y se perdió el aviso en
+    // vivo, también una relectura apenas vuelve a esta pestaña.
     onSnapshot(rRef("mesas", state.mesaId), (s) => {
       const d = s.data();
-      if (d && state.sesion && d.sesionActual !== state.sesion) location.reload();
+      if (d && state.sesion && d.sesionActual !== state.sesion) bloquearPorMesaLiberada();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "visible" || !state.mesaId || !state.sesion) return;
+      getDoc(rRef("mesas", state.mesaId)).then((snap) => {
+        const d = snap.data();
+        if (d && d.sesionActual !== state.sesion) bloquearPorMesaLiberada();
+      }).catch(() => {});
     });
 
     document.getElementById("numeroMesaTxt").textContent = state.mesaNumero;
@@ -639,6 +669,34 @@ function mostrarErrorMesa(opts) {
     btn.classList.toggle("hidden", !opts.reintentar);
     if (opts.reintentar) btn.onclick = () => location.reload();
   }
+}
+
+// Bloquea toda la app y muestra la pantalla de "Mesa liberada" cuando el
+// mesero desocupa la mesa mientras esta página seguía abierta en el celular
+// de un cliente anterior. No hay botón para "seguir" a propósito: el
+// próximo pedido tiene que venir de escanear el QR de nuevo (o de una
+// recarga normal, que en la práctica es lo mismo para una página web), no
+// de esta pestaña vieja que ya no debería poder pedir nada más.
+function bloquearPorMesaLiberada() {
+  const pantalla = document.getElementById("pantallaSesionFinalizada");
+  if (!pantalla.classList.contains("hidden")) return; // ya se mostró, no repetir
+
+  // Limpia lo guardado en este celular para esta mesa: si alguien vuelve a
+  // escanear (o recarga) después de esto, empieza de cero, nunca arrastra
+  // el carrito, la propina o los avisos de la visita anterior.
+  try {
+    sessionStorage.removeItem(claveCarrito());
+    sessionStorage.removeItem(clavePropinaPreguntada());
+    sessionStorage.removeItem(claveNotificadosListo());
+    sessionStorage.removeItem("ej_mesaId");
+  } catch (e) { /* si el celular bloquea sessionStorage, no pasa nada grave */ }
+
+  clearTimeout(transicionTimeout);
+  clearTimeout(toastTimeout);
+  ["modalVisor3D", "modalInfo", "modalNombre", "modalCuenta", "modalPropinaInicial", "pantallaTransicion", "toast", "app", "navInferior", "pantallaCarga", "pantallaError"]
+    .forEach((id) => document.getElementById(id)?.classList.add("hidden"));
+
+  pantalla.classList.remove("hidden");
 }
 function mostrarApp() {
   document.getElementById("pantallaCarga").classList.add("hidden");
@@ -722,19 +780,34 @@ document.getElementById("btnOmitirNombre").addEventListener("click", () => guard
    pantalla (requisito de los navegadores para dejar sonar audio).
 ------------------------------------------------------------------ */
 function activarSonido() {
-  if (state.audioListo) return;
   try {
-    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!state.audioCtx || state.audioCtx.state === "closed") {
+      state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
     if (state.audioCtx.state === "suspended") state.audioCtx.resume();
     state.audioListo = true;
   } catch (e) { /* seguimos solo con el aviso visual/vibración */ }
 }
-document.addEventListener("pointerdown", activarSonido, { once: true });
+// OJO: no basta con "desbloquear" el audio una sola vez. Los celulares
+// suspenden el AudioContext cada vez que la pantalla se apaga o el cliente
+// cambia a otra app (WhatsApp, redes...), y luego un navegador NO deja
+// reactivar el sonido si no hay un toque real justo antes — por eso antes a
+// veces no sonaba el aviso de "pedido listo": el permiso de audio ya se
+// había vencido cuando llegó el aviso. Ahora se vuelve a "recargar" en cada
+// toque (no solo el primero) y también apenas el cliente vuelve a esta
+// pestaña, para que esté listo la mayor cantidad de veces posible.
+document.addEventListener("pointerdown", activarSonido);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") activarSonido();
+});
 
 function avisarPedidoListo() {
   if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
   try {
-    const ctx = state.audioCtx || (state.audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+    if (!state.audioCtx || state.audioCtx.state === "closed") {
+      state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    const ctx = state.audioCtx;
     if (ctx.state === "suspended") ctx.resume();
     [660, 880, 1046].forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -1282,6 +1355,7 @@ function renderHistorial() {
         <span class="text-xs text-jackson-negro/40 dark:text-white/40">${horaRelativa(p.timestamp)}</span>
         <span class="font-display font-bold text-sm text-jackson-rojo">${fmtMoney(p.total)}</span>
       </div>
+      ${p.origen === "mesero" ? `<p class="text-[10px] font-display font-bold text-jackson-rojo/80 uppercase tracking-wide mb-2 -mt-1">Agregado por tu mesero</p>` : ""}
       <ul class="text-sm mb-4 space-y-0.5">
         ${p.items.map((i) => `<li><div class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></div>${i.nota ? `<p class="text-[11px] text-jackson-negro/40 dark:text-white/40 italic">"${i.nota}"</p>` : ""}</li>`).join("")}
       </ul>
