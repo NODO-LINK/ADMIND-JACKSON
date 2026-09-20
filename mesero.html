@@ -318,12 +318,14 @@
 </div>
 
 <!-- ============================================================
-     TOMAR PEDIDO — para cuando el cliente prefiere pedir de viva voz en
-     vez de usar su celular. Se guarda exactamente igual que un pedido
-     enviado desde mesa.html (misma colección, mismo mesaId/sesión), así
-     que aparece de una vez en tiempo real en "Mi pedido" del cliente con
-     el mismo seguimiento de estado — y a propósito NO pasa por el
-     carrito del cliente, así que él no lo puede borrar ni modificar.
+     TOMAR PEDIDO — el cliente arma su pedido en su propio celular (en
+     mesa.html) y ese carrito se sincroniza solo, en tiempo real, hasta
+     acá — el mesero NO escribe ni selecciona nada, solo revisa lo que el
+     cliente ya armó y confirma para enviarlo a cocina. Se guarda en la
+     misma colección de pedidos (mismo mesaId/sesión), así que aparece de
+     inmediato en "Mi pedido" del cliente con el mismo seguimiento de
+     estado — y como no pasa por el carrito editable del cliente, él no
+     lo puede borrar ni modificar después de confirmado.
 ============================================================ -->
 <div id="modalTomarPedido" class="hidden fixed inset-0 z-[56] flex items-center justify-center px-4 ej-no-print">
   <div class="ej-modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-cerrar="modalTomarPedido"></div>
@@ -335,13 +337,14 @@
       </div>
       <button data-cerrar="modalTomarPedido" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
     </div>
+    <p class="px-5 pb-2 text-xs text-jackson-negro/45 -mt-2 shrink-0">Esto es lo que el cliente tiene armado en su celular ahora mismo:</p>
     <div id="listaTomarPedido" class="flex-1 overflow-y-auto px-5 space-y-2"></div>
     <div class="p-5 pt-3 shrink-0">
       <div class="flex items-center justify-between mb-3 text-sm">
         <span class="font-display font-semibold text-jackson-negro/60">Total</span>
         <span id="tomarPedidoTotal" class="font-display font-bold text-lg">$0.00</span>
       </div>
-      <button id="btnConfirmarTomarPedido" disabled class="w-full bg-jackson-rojo disabled:bg-jackson-negro/15 disabled:cursor-not-allowed text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98]">Cargar pedido</button>
+      <button id="btnConfirmarTomarPedido" disabled class="w-full bg-jackson-rojo disabled:bg-jackson-negro/15 disabled:cursor-not-allowed text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98]">Confirmar y enviar a cocina</button>
     </div>
   </div>
 </div>
@@ -486,7 +489,7 @@ const state = {
   arrastrandoId: null,
   audioCtx: null,
   audioListo: false,
-  pedidoEnCurso: {} // { platoId: {nombre, precio, cantidad} } — armado del picker de "Tomar pedido"
+  mesaTomandoPedidoId: null // mesa cuyo carrito en vivo se está revisando en el modal "Tomar pedido"
 };
 
 /* ------------------------------------------------------------------
@@ -671,6 +674,7 @@ function renderMesas() {
 
   renderPlanoMesas();
   refrescarModalMesa();
+  refrescarModalTomarPedido();
 }
 
 const PASOS_ESTADO = ["nuevo", "en_preparacion", "listo", "entregado"];
@@ -907,7 +911,10 @@ async function desocuparMesa(mesaId) {
   solicitudesDeSesion(mesaId, mesa.sesionActual).forEach((s) => {
     if (s.estado === "pendiente") batch.update(rRef("solicitudes", s.id), { estado: "atendida" });
   });
-  batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null });
+  // Limpia también el carrito en vivo: si el cliente anterior dejó algo sin
+  // enviar en su celular, no debe quedar ahí esperando para el próximo
+  // cliente que se siente en esta mesa.
+  batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null, carritoEnVivo: null });
   await batch.commit();
   mostrarToast(`Mesa ${mesa.numero} lista para el próximo cliente`);
 
@@ -918,102 +925,87 @@ async function desocuparMesa(mesaId) {
 }
 
 /* ------------------------------------------------------------------
-   TOMAR PEDIDO — el mesero carga un pedido directo para la mesa (cliente
-   que prefiere pedir de viva voz). Se guarda igual que un pedido enviado
-   desde mesa.html: misma colección "pedidos", mismo mesaId/sesión, así
-   que aparece de inmediato en "Mi pedido" del cliente con el mismo
-   seguimiento de estado — y como no pasa por el carrito del cliente, él
-   no lo puede borrar ni modificar desde su celular.
+   TOMAR PEDIDO — el cliente arma su pedido en su propio celular (mesa.html)
+   y ese carrito llega solo, en tiempo real, al campo "carritoEnVivo" del
+   documento de la mesa (mesa.html lo sincroniza cada vez que el cliente
+   toca +/−). El mesero NO escribe ni selecciona ningún plato: este modal
+   solo muestra lo que ya está ahí y, al confirmar, lo envía a cocina tal
+   cual. Se guarda en la misma colección "pedidos" que usa mesa.html
+   (mismo mesaId/sesión), así que aparece de inmediato en "Mi pedido" del
+   cliente con el mismo seguimiento de estado — y como ya no pasa por su
+   carrito editable, él no lo puede borrar ni modificar después.
 ------------------------------------------------------------------ */
 function abrirTomarPedido(mesaId) {
-  const mesa = state.mesas.find((m) => m.id === mesaId);
-  if (!mesa) return;
-  state.pedidoEnCurso = {};
-  document.getElementById("tomarPedidoMesaNumero").textContent = mesa.numero;
-  renderListaTomarPedido();
+  state.mesaTomandoPedidoId = mesaId;
   document.getElementById("modalTomarPedido").classList.remove("hidden");
+  refrescarModalTomarPedido();
 }
 
-function renderListaTomarPedido() {
+// Se llama tanto al abrir el modal como cada vez que llega una actualización
+// en tiempo real de las mesas (renderMesas), para que si el cliente sigue
+// agregando o quitando platos MIENTRAS el mesero tiene este modal abierto,
+// se vea reflejado solo, sin que nadie tenga que cerrar y volver a abrir.
+function refrescarModalTomarPedido() {
+  if (!state.mesaTomandoPedidoId) return;
+  const modal = document.getElementById("modalTomarPedido");
+  if (modal.classList.contains("hidden")) return;
+  const mesa = state.mesas.find((m) => m.id === state.mesaTomandoPedidoId);
+  if (!mesa) { modal.classList.add("hidden"); state.mesaTomandoPedidoId = null; return; }
+
+  document.getElementById("tomarPedidoMesaNumero").textContent = mesa.numero;
+  const carrito = mesa.carritoEnVivo;
+  const items = carrito?.items || [];
   const cont = document.getElementById("listaTomarPedido");
-  const disponibles = state.platos.filter((p) => p.disponible);
-  cont.innerHTML = disponibles.length === 0
-    ? `<p class="text-sm text-jackson-negro/40 text-center py-8">No hay platos disponibles en el menú.</p>`
-    : disponibles.map((p) => {
-        const cant = state.pedidoEnCurso[p.id]?.cantidad || 0;
-        return `
-        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-3 shadow-sm shadow-black/[0.03] ${cant > 0 ? "ring-2 ring-jackson-rojo/30" : ""}">
+  const btn = document.getElementById("btnConfirmarTomarPedido");
+
+  cont.innerHTML = items.length === 0
+    ? `<p class="text-sm text-jackson-negro/40 text-center py-8">El cliente todavía no ha agregado nada a su carrito.<br>Esto se actualiza solo apenas empiece a pedir.</p>`
+    : items.map((i) => `
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-3 shadow-sm shadow-black/[0.03]">
           <div class="min-w-0">
-            <p class="font-display font-semibold text-sm truncate">${p.nombre}</p>
-            <p class="text-xs text-jackson-negro/40">${fmtMoney(p.precio)}${p.categoria ? " · " + p.categoria : ""}</p>
+            <p class="font-display font-semibold text-sm truncate">${i.cantidad}× ${i.nombre}</p>
+            ${i.nota ? `<p class="text-[11px] text-jackson-rojo/80 italic">"${i.nota}"</p>` : ""}
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button type="button" data-tp-menos="${p.id}" ${cant === 0 ? "disabled" : ""} class="w-8 h-8 rounded-full border-2 border-jackson-negro/15 font-bold active:scale-90 disabled:opacity-30 transition">−</button>
-            <span class="font-display font-semibold w-4 text-center">${cant}</span>
-            <button type="button" data-tp-mas="${p.id}" class="w-8 h-8 rounded-full border-2 border-jackson-negro/15 font-bold active:scale-90 transition">+</button>
-          </div>
-        </div>`;
-      }).join("");
+          <span class="font-display font-bold text-sm shrink-0">${fmtMoney(i.precio * i.cantidad)}</span>
+        </div>`).join("");
 
-  cont.querySelectorAll("[data-tp-mas]").forEach((btn) => {
-    btn.addEventListener("click", () => cambiarCantidadTomarPedido(btn.dataset.tpMas, 1));
-  });
-  cont.querySelectorAll("[data-tp-menos]").forEach((btn) => {
-    btn.addEventListener("click", () => cambiarCantidadTomarPedido(btn.dataset.tpMenos, -1));
-  });
-
-  actualizarTotalTomarPedido();
-}
-
-function cambiarCantidadTomarPedido(platoId, delta) {
-  const plato = state.platos.find((p) => p.id === platoId);
-  if (!plato) return;
-  const actual = state.pedidoEnCurso[platoId]?.cantidad || 0;
-  const nueva = Math.max(0, actual + delta);
-  if (nueva === 0) delete state.pedidoEnCurso[platoId];
-  else state.pedidoEnCurso[platoId] = { nombre: plato.nombre, precio: plato.precio, cantidad: nueva };
-  renderListaTomarPedido();
-}
-
-function totalTomarPedido() {
-  return Object.values(state.pedidoEnCurso).reduce((a, it) => a + it.precio * it.cantidad, 0);
-}
-function actualizarTotalTomarPedido() {
-  document.getElementById("tomarPedidoTotal").textContent = fmtMoney(totalTomarPedido());
-  const cantidadTotal = Object.values(state.pedidoEnCurso).reduce((a, it) => a + it.cantidad, 0);
-  document.getElementById("btnConfirmarTomarPedido").disabled = cantidadTotal === 0;
+  document.getElementById("tomarPedidoTotal").textContent = fmtMoney(carrito?.total || 0);
+  btn.disabled = items.length === 0;
 }
 
 document.getElementById("btnConfirmarTomarPedido").addEventListener("click", async () => {
-  const mesa = state.mesas.find((m) => m.id === state.mesaAbiertaId);
+  const mesa = state.mesas.find((m) => m.id === state.mesaTomandoPedidoId);
   const btn = document.getElementById("btnConfirmarTomarPedido");
-  const items = Object.entries(state.pedidoEnCurso).map(([platoId, it]) => ({
-    platoId, nombre: it.nombre, cantidad: it.cantidad, precio: it.precio, nota: ""
-  }));
+  const carrito = mesa?.carritoEnVivo;
+  const items = carrito?.items || [];
   if (!mesa || items.length === 0) return;
-  const total = totalTomarPedido();
   btn.disabled = true;
-  btn.textContent = "Cargando...";
+  btn.textContent = "Enviando...";
   try {
     await addDoc(rCol("pedidos"), {
       mesaId: mesa.id,
       mesaNumero: mesa.numero,
       sesion: mesa.sesionActual,
       clienteNombre: "Mesero",
-      origen: "mesero", // distingue en mesa.html que este pedido lo cargó el mesero, no el cliente
-      items, total,
+      origen: "mesero", // distingue en mesa.html que este pedido lo confirmó el mesero, no el cliente
+      items, total: carrito.total || 0,
       estado: "nuevo",
       timestamp: serverTimestamp()
     });
+    // Limpia el carrito en vivo del cliente (ya se convirtió en un pedido
+    // real) y avisa a su celular con "carritoTomado" para que borre su
+    // carrito local y sepa que su mesero ya lo envió a cocina.
+    await updateDoc(rRef("mesas", mesa.id), { carritoEnVivo: null, carritoTomado: Date.now() });
     document.getElementById("modalTomarPedido").classList.add("hidden");
-    mostrarToast(`Pedido cargado para la mesa ${mesa.numero}`);
+    state.mesaTomandoPedidoId = null;
+    mostrarToast(`Pedido de la mesa ${mesa.numero} enviado a cocina`);
     refrescarModalMesa();
   } catch (err) {
-    console.error("Error cargando pedido:", err);
-    mostrarToast("No se pudo cargar el pedido, intenta de nuevo");
+    console.error("Error confirmando el pedido:", err);
+    mostrarToast("No se pudo enviar el pedido, intenta de nuevo");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Cargar pedido";
+    btn.textContent = "Confirmar y enviar a cocina";
   }
 });
 
@@ -1177,6 +1169,7 @@ document.addEventListener("click", (e) => {
   if (!el) return;
   document.getElementById(el.dataset.cerrar)?.classList.add("hidden");
   if (el.dataset.cerrar === "modalMesa") state.mesaAbiertaId = null;
+  if (el.dataset.cerrar === "modalTomarPedido") state.mesaTomandoPedidoId = null;
 });
 
 document.getElementById("formPlato").addEventListener("submit", async (e) => {
