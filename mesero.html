@@ -223,11 +223,6 @@
         <input id="ajusteFotoPortada" type="url" placeholder="https://..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
         <p class="text-[10px] text-jackson-negro/40 mt-1">Una foto del ambiente del restaurante. Súbela a un hosting de imágenes y pega el link aquí. Si la dejas vacía, se usa el diseño de marca por defecto.</p>
       </div>
-      <div>
-        <label class="text-xs font-display font-semibold text-jackson-negro/60">URL de imagen de fondo (toda la app del cliente)</label>
-        <input id="ajusteFondoUrl" type="url" placeholder="https://..." class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]">
-        <p class="text-[10px] text-jackson-negro/40 mt-1">Se muestra bien difuminada de fondo detrás de todo el menú del cliente (mesa.html), no solo en la portada. Si la dejas vacía, queda el fondo negro de siempre.</p>
-      </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-display font-semibold text-jackson-negro/60">Red de wifi</label>
@@ -323,6 +318,35 @@
 </div>
 
 <!-- ============================================================
+     TOMAR PEDIDO — para cuando el cliente prefiere pedir de viva voz en
+     vez de usar su celular. Se guarda exactamente igual que un pedido
+     enviado desde mesa.html (misma colección, mismo mesaId/sesión), así
+     que aparece de una vez en tiempo real en "Mi pedido" del cliente con
+     el mismo seguimiento de estado — y a propósito NO pasa por el
+     carrito del cliente, así que él no lo puede borrar ni modificar.
+============================================================ -->
+<div id="modalTomarPedido" class="hidden fixed inset-0 z-[56] flex items-center justify-center px-4 ej-no-print">
+  <div class="ej-modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-cerrar="modalTomarPedido"></div>
+  <div class="ej-modal-card relative bg-jackson-crema w-full max-w-md rounded-3xl max-h-[88vh] flex flex-col shadow-2xl shadow-black/20">
+    <div class="flex items-center justify-between p-5 pb-3 shrink-0">
+      <div>
+        <p class="text-xs text-jackson-negro/40 font-display font-semibold">TOMAR PEDIDO</p>
+        <p class="font-heading text-2xl leading-none">Mesa <span id="tomarPedidoMesaNumero">–</span></p>
+      </div>
+      <button data-cerrar="modalTomarPedido" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
+    </div>
+    <div id="listaTomarPedido" class="flex-1 overflow-y-auto px-5 space-y-2"></div>
+    <div class="p-5 pt-3 shrink-0">
+      <div class="flex items-center justify-between mb-3 text-sm">
+        <span class="font-display font-semibold text-jackson-negro/60">Total</span>
+        <span id="tomarPedidoTotal" class="font-display font-bold text-lg">$0.00</span>
+      </div>
+      <button id="btnConfirmarTomarPedido" disabled class="w-full bg-jackson-rojo disabled:bg-jackson-negro/15 disabled:cursor-not-allowed text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98]">Cargar pedido</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
      TIKET DE CIERRE — imprimible / descargable (Ctrl+P → Guardar como PDF)
 ============================================================ -->
 <div id="modalTicket" class="hidden fixed inset-0 z-[55] flex items-center justify-center px-4">
@@ -398,7 +422,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, updateDoc, deleteDoc, addDoc, collection,
-  onSnapshot, writeBatch
+  onSnapshot, writeBatch, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -426,6 +450,7 @@ const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
 const ICONOS = {
   campana: '<path d="M18 16 V11 A6 6 0 1 0 6 11 V16 L4.5 18 H19.5 Z"/><path d="M10 20 A2 2 0 0 0 14 20"/>',
   recibo: '<path d="M6 3 H18 V20.5 L16 19.2 L14 20.5 L12 19.2 L10 20.5 L8 19.2 L6 20.5 Z"/><path d="M9 8 H15 M9 12 H15"/>',
+  platos: '<path d="M7 2 V8 M9 2 V8 M11 2 V8 M9 8 V21"/><path d="M16 2 C14.2 4.6 14.2 7.8 16 9.6 C16.6 10.2 17 9.4 17 8.2 V2 M17 9.5 V21"/>',
   estrella: '<path d="M12 3.3 L14.4 8.2 L19.8 9 L15.9 12.8 L16.8 18.2 L12 15.7 L7.2 18.2 L8.1 12.8 L4.2 9 L9.6 8.2 Z"/>',
   bebida: '<path d="M8 3 H16 L15.1 18.2 A2 2 0 0 1 13.1 20 H10.9 A2 2 0 0 1 8.9 18.2 Z"/><path d="M9.3 7 H14.7 M9.5 3 V1.3"/>',
   usuario: '<circle cx="12" cy="8" r="3.4"/><path d="M4.8 20 C5.4 16 8.2 13.6 12 13.6 S18.6 16 19.2 20"/>',
@@ -460,7 +485,8 @@ const state = {
   mesaAbiertaId: null,
   arrastrandoId: null,
   audioCtx: null,
-  audioListo: false
+  audioListo: false,
+  pedidoEnCurso: {} // { platoId: {nombre, precio, cantidad} } — armado del picker de "Tomar pedido"
 };
 
 /* ------------------------------------------------------------------
@@ -523,7 +549,6 @@ function suscribirAjustes() {
   onSnapshot(rRef("ajustes", "general"), (snap) => {
     const a = snap.exists() ? snap.data() : {};
     document.getElementById("ajusteFotoPortada").value = a.fotoPortadaUrl || "";
-    document.getElementById("ajusteFondoUrl").value = a.fondoUrl || "";
     document.getElementById("ajusteWifiRed").value = a.wifiRed || "";
     document.getElementById("ajusteWifiClave").value = a.wifiClave || "";
     document.getElementById("ajusteHorario").value = a.horario || "";
@@ -536,7 +561,6 @@ document.getElementById("formAjustes").addEventListener("submit", async (e) => {
   try {
     await setDoc(rRef("ajustes", "general"), {
       fotoPortadaUrl: document.getElementById("ajusteFotoPortada").value.trim(),
-      fondoUrl: document.getElementById("ajusteFondoUrl").value.trim(),
       wifiRed: document.getElementById("ajusteWifiRed").value.trim(),
       wifiClave: document.getElementById("ajusteWifiClave").value.trim(),
       horario: document.getElementById("ajusteHorario").value.trim(),
@@ -837,6 +861,7 @@ function contenidoDetalleMesa(m) {
     ${propina?.detalle?.comentario ? `<p class="text-xs italic text-jackson-negro/50 mb-3">"${propina.detalle.comentario}"</p>` : ""}
 
     <div class="flex flex-col gap-2">
+      <button data-tomar-pedido="${m.id}" class="w-full bg-jackson-negro text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-1.5">${ic("platos", "w-4 h-4")}Tomar pedido</button>
       <button data-hacer-cierre="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20 flex items-center justify-center gap-1.5">${ic("recibo", "w-4 h-4")}Hacer cierre (ver / imprimir cuenta)</button>
       <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98]">Mesa desocupada</button>
     </div>
@@ -853,6 +878,9 @@ function adjuntarEventosDetalle() {
   });
   document.querySelectorAll("#contenidoModalMesa [data-desocupar]").forEach((btn) => {
     btn.addEventListener("click", () => desocuparMesa(btn.dataset.desocupar));
+  });
+  document.querySelectorAll("#contenidoModalMesa [data-tomar-pedido]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirTomarPedido(btn.dataset.tomarPedido));
   });
   document.querySelectorAll("#contenidoModalMesa [data-hacer-cierre]").forEach((btn) => {
     btn.addEventListener("click", () => abrirTicket(btn.dataset.hacerCierre));
@@ -888,6 +916,106 @@ async function desocuparMesa(mesaId) {
     state.mesaAbiertaId = null;
   }
 }
+
+/* ------------------------------------------------------------------
+   TOMAR PEDIDO — el mesero carga un pedido directo para la mesa (cliente
+   que prefiere pedir de viva voz). Se guarda igual que un pedido enviado
+   desde mesa.html: misma colección "pedidos", mismo mesaId/sesión, así
+   que aparece de inmediato en "Mi pedido" del cliente con el mismo
+   seguimiento de estado — y como no pasa por el carrito del cliente, él
+   no lo puede borrar ni modificar desde su celular.
+------------------------------------------------------------------ */
+function abrirTomarPedido(mesaId) {
+  const mesa = state.mesas.find((m) => m.id === mesaId);
+  if (!mesa) return;
+  state.pedidoEnCurso = {};
+  document.getElementById("tomarPedidoMesaNumero").textContent = mesa.numero;
+  renderListaTomarPedido();
+  document.getElementById("modalTomarPedido").classList.remove("hidden");
+}
+
+function renderListaTomarPedido() {
+  const cont = document.getElementById("listaTomarPedido");
+  const disponibles = state.platos.filter((p) => p.disponible);
+  cont.innerHTML = disponibles.length === 0
+    ? `<p class="text-sm text-jackson-negro/40 text-center py-8">No hay platos disponibles en el menú.</p>`
+    : disponibles.map((p) => {
+        const cant = state.pedidoEnCurso[p.id]?.cantidad || 0;
+        return `
+        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-3 shadow-sm shadow-black/[0.03] ${cant > 0 ? "ring-2 ring-jackson-rojo/30" : ""}">
+          <div class="min-w-0">
+            <p class="font-display font-semibold text-sm truncate">${p.nombre}</p>
+            <p class="text-xs text-jackson-negro/40">${fmtMoney(p.precio)}${p.categoria ? " · " + p.categoria : ""}</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button type="button" data-tp-menos="${p.id}" ${cant === 0 ? "disabled" : ""} class="w-8 h-8 rounded-full border-2 border-jackson-negro/15 font-bold active:scale-90 disabled:opacity-30 transition">−</button>
+            <span class="font-display font-semibold w-4 text-center">${cant}</span>
+            <button type="button" data-tp-mas="${p.id}" class="w-8 h-8 rounded-full border-2 border-jackson-negro/15 font-bold active:scale-90 transition">+</button>
+          </div>
+        </div>`;
+      }).join("");
+
+  cont.querySelectorAll("[data-tp-mas]").forEach((btn) => {
+    btn.addEventListener("click", () => cambiarCantidadTomarPedido(btn.dataset.tpMas, 1));
+  });
+  cont.querySelectorAll("[data-tp-menos]").forEach((btn) => {
+    btn.addEventListener("click", () => cambiarCantidadTomarPedido(btn.dataset.tpMenos, -1));
+  });
+
+  actualizarTotalTomarPedido();
+}
+
+function cambiarCantidadTomarPedido(platoId, delta) {
+  const plato = state.platos.find((p) => p.id === platoId);
+  if (!plato) return;
+  const actual = state.pedidoEnCurso[platoId]?.cantidad || 0;
+  const nueva = Math.max(0, actual + delta);
+  if (nueva === 0) delete state.pedidoEnCurso[platoId];
+  else state.pedidoEnCurso[platoId] = { nombre: plato.nombre, precio: plato.precio, cantidad: nueva };
+  renderListaTomarPedido();
+}
+
+function totalTomarPedido() {
+  return Object.values(state.pedidoEnCurso).reduce((a, it) => a + it.precio * it.cantidad, 0);
+}
+function actualizarTotalTomarPedido() {
+  document.getElementById("tomarPedidoTotal").textContent = fmtMoney(totalTomarPedido());
+  const cantidadTotal = Object.values(state.pedidoEnCurso).reduce((a, it) => a + it.cantidad, 0);
+  document.getElementById("btnConfirmarTomarPedido").disabled = cantidadTotal === 0;
+}
+
+document.getElementById("btnConfirmarTomarPedido").addEventListener("click", async () => {
+  const mesa = state.mesas.find((m) => m.id === state.mesaAbiertaId);
+  const btn = document.getElementById("btnConfirmarTomarPedido");
+  const items = Object.entries(state.pedidoEnCurso).map(([platoId, it]) => ({
+    platoId, nombre: it.nombre, cantidad: it.cantidad, precio: it.precio, nota: ""
+  }));
+  if (!mesa || items.length === 0) return;
+  const total = totalTomarPedido();
+  btn.disabled = true;
+  btn.textContent = "Cargando...";
+  try {
+    await addDoc(rCol("pedidos"), {
+      mesaId: mesa.id,
+      mesaNumero: mesa.numero,
+      sesion: mesa.sesionActual,
+      clienteNombre: "Mesero",
+      origen: "mesero", // distingue en mesa.html que este pedido lo cargó el mesero, no el cliente
+      items, total,
+      estado: "nuevo",
+      timestamp: serverTimestamp()
+    });
+    document.getElementById("modalTomarPedido").classList.add("hidden");
+    mostrarToast(`Pedido cargado para la mesa ${mesa.numero}`);
+    refrescarModalMesa();
+  } catch (err) {
+    console.error("Error cargando pedido:", err);
+    mostrarToast("No se pudo cargar el pedido, intenta de nuevo");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Cargar pedido";
+  }
+});
 
 /* ------------------------------------------------------------------
    TIKET DE CIERRE — combina todos los pedidos de la sesión en una sola
