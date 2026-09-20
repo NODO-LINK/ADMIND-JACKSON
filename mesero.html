@@ -318,38 +318,6 @@
 </div>
 
 <!-- ============================================================
-     TOMAR PEDIDO — el cliente arma su pedido en su propio celular (en
-     mesa.html) y ese carrito se sincroniza solo, en tiempo real, hasta
-     acá — el mesero NO escribe ni selecciona nada, solo revisa lo que el
-     cliente ya armó y confirma para enviarlo a cocina. Se guarda en la
-     misma colección de pedidos (mismo mesaId/sesión), así que aparece de
-     inmediato en "Mi pedido" del cliente con el mismo seguimiento de
-     estado — y como no pasa por el carrito editable del cliente, él no
-     lo puede borrar ni modificar después de confirmado.
-============================================================ -->
-<div id="modalTomarPedido" class="hidden fixed inset-0 z-[56] flex items-center justify-center px-4 ej-no-print">
-  <div class="ej-modal-backdrop absolute inset-0 bg-black/60 backdrop-blur-[2px]" data-cerrar="modalTomarPedido"></div>
-  <div class="ej-modal-card relative bg-jackson-crema w-full max-w-md rounded-3xl max-h-[88vh] flex flex-col shadow-2xl shadow-black/20">
-    <div class="flex items-center justify-between p-5 pb-3 shrink-0">
-      <div>
-        <p class="text-xs text-jackson-negro/40 font-display font-semibold">TOMAR PEDIDO</p>
-        <p class="font-heading text-2xl leading-none">Mesa <span id="tomarPedidoMesaNumero">–</span></p>
-      </div>
-      <button data-cerrar="modalTomarPedido" class="w-9 h-9 rounded-full bg-white shadow-sm flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
-    </div>
-    <p class="px-5 pb-2 text-xs text-jackson-negro/45 -mt-2 shrink-0">Esto es lo que el cliente tiene armado en su celular ahora mismo:</p>
-    <div id="listaTomarPedido" class="flex-1 overflow-y-auto px-5 space-y-2"></div>
-    <div class="p-5 pt-3 shrink-0">
-      <div class="flex items-center justify-between mb-3 text-sm">
-        <span class="font-display font-semibold text-jackson-negro/60">Total</span>
-        <span id="tomarPedidoTotal" class="font-display font-bold text-lg">$0.00</span>
-      </div>
-      <button id="btnConfirmarTomarPedido" disabled class="w-full bg-jackson-rojo disabled:bg-jackson-negro/15 disabled:cursor-not-allowed text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98]">Confirmar y enviar a cocina</button>
-    </div>
-  </div>
-</div>
-
-<!-- ============================================================
      TIKET DE CIERRE — imprimible / descargable (Ctrl+P → Guardar como PDF)
 ============================================================ -->
 <div id="modalTicket" class="hidden fixed inset-0 z-[55] flex items-center justify-center px-4">
@@ -488,8 +456,7 @@ const state = {
   mesaAbiertaId: null,
   arrastrandoId: null,
   audioCtx: null,
-  audioListo: false,
-  mesaTomandoPedidoId: null // mesa cuyo carrito en vivo se está revisando en el modal "Tomar pedido"
+  audioListo: false
 };
 
 /* ------------------------------------------------------------------
@@ -674,7 +641,6 @@ function renderMesas() {
 
   renderPlanoMesas();
   refrescarModalMesa();
-  refrescarModalTomarPedido();
 }
 
 const PASOS_ESTADO = ["nuevo", "en_preparacion", "listo", "entregado"];
@@ -865,7 +831,6 @@ function contenidoDetalleMesa(m) {
     ${propina?.detalle?.comentario ? `<p class="text-xs italic text-jackson-negro/50 mb-3">"${propina.detalle.comentario}"</p>` : ""}
 
     <div class="flex flex-col gap-2">
-      <button data-tomar-pedido="${m.id}" class="w-full bg-jackson-negro text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-1.5">${ic("platos", "w-4 h-4")}Tomar pedido</button>
       <button data-hacer-cierre="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20 flex items-center justify-center gap-1.5">${ic("recibo", "w-4 h-4")}Hacer cierre (ver / imprimir cuenta)</button>
       <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98]">Mesa desocupada</button>
     </div>
@@ -882,9 +847,6 @@ function adjuntarEventosDetalle() {
   });
   document.querySelectorAll("#contenidoModalMesa [data-desocupar]").forEach((btn) => {
     btn.addEventListener("click", () => desocuparMesa(btn.dataset.desocupar));
-  });
-  document.querySelectorAll("#contenidoModalMesa [data-tomar-pedido]").forEach((btn) => {
-    btn.addEventListener("click", () => abrirTomarPedido(btn.dataset.tomarPedido));
   });
   document.querySelectorAll("#contenidoModalMesa [data-hacer-cierre]").forEach((btn) => {
     btn.addEventListener("click", () => abrirTicket(btn.dataset.hacerCierre));
@@ -911,10 +873,7 @@ async function desocuparMesa(mesaId) {
   solicitudesDeSesion(mesaId, mesa.sesionActual).forEach((s) => {
     if (s.estado === "pendiente") batch.update(rRef("solicitudes", s.id), { estado: "atendida" });
   });
-  // Limpia también el carrito en vivo: si el cliente anterior dejó algo sin
-  // enviar en su celular, no debe quedar ahí esperando para el próximo
-  // cliente que se siente en esta mesa.
-  batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null, carritoEnVivo: null });
+  batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null });
   await batch.commit();
   mostrarToast(`Mesa ${mesa.numero} lista para el próximo cliente`);
 
@@ -923,91 +882,6 @@ async function desocuparMesa(mesaId) {
     state.mesaAbiertaId = null;
   }
 }
-
-/* ------------------------------------------------------------------
-   TOMAR PEDIDO — el cliente arma su pedido en su propio celular (mesa.html)
-   y ese carrito llega solo, en tiempo real, al campo "carritoEnVivo" del
-   documento de la mesa (mesa.html lo sincroniza cada vez que el cliente
-   toca +/−). El mesero NO escribe ni selecciona ningún plato: este modal
-   solo muestra lo que ya está ahí y, al confirmar, lo envía a cocina tal
-   cual. Se guarda en la misma colección "pedidos" que usa mesa.html
-   (mismo mesaId/sesión), así que aparece de inmediato en "Mi pedido" del
-   cliente con el mismo seguimiento de estado — y como ya no pasa por su
-   carrito editable, él no lo puede borrar ni modificar después.
------------------------------------------------------------------- */
-function abrirTomarPedido(mesaId) {
-  state.mesaTomandoPedidoId = mesaId;
-  document.getElementById("modalTomarPedido").classList.remove("hidden");
-  refrescarModalTomarPedido();
-}
-
-// Se llama tanto al abrir el modal como cada vez que llega una actualización
-// en tiempo real de las mesas (renderMesas), para que si el cliente sigue
-// agregando o quitando platos MIENTRAS el mesero tiene este modal abierto,
-// se vea reflejado solo, sin que nadie tenga que cerrar y volver a abrir.
-function refrescarModalTomarPedido() {
-  if (!state.mesaTomandoPedidoId) return;
-  const modal = document.getElementById("modalTomarPedido");
-  if (modal.classList.contains("hidden")) return;
-  const mesa = state.mesas.find((m) => m.id === state.mesaTomandoPedidoId);
-  if (!mesa) { modal.classList.add("hidden"); state.mesaTomandoPedidoId = null; return; }
-
-  document.getElementById("tomarPedidoMesaNumero").textContent = mesa.numero;
-  const carrito = mesa.carritoEnVivo;
-  const items = carrito?.items || [];
-  const cont = document.getElementById("listaTomarPedido");
-  const btn = document.getElementById("btnConfirmarTomarPedido");
-
-  cont.innerHTML = items.length === 0
-    ? `<p class="text-sm text-jackson-negro/40 text-center py-8">El cliente todavía no ha agregado nada a su carrito.<br>Esto se actualiza solo apenas empiece a pedir.</p>`
-    : items.map((i) => `
-        <div class="bg-white rounded-xl p-3 flex items-center justify-between gap-3 shadow-sm shadow-black/[0.03]">
-          <div class="min-w-0">
-            <p class="font-display font-semibold text-sm truncate">${i.cantidad}× ${i.nombre}</p>
-            ${i.nota ? `<p class="text-[11px] text-jackson-rojo/80 italic">"${i.nota}"</p>` : ""}
-          </div>
-          <span class="font-display font-bold text-sm shrink-0">${fmtMoney(i.precio * i.cantidad)}</span>
-        </div>`).join("");
-
-  document.getElementById("tomarPedidoTotal").textContent = fmtMoney(carrito?.total || 0);
-  btn.disabled = items.length === 0;
-}
-
-document.getElementById("btnConfirmarTomarPedido").addEventListener("click", async () => {
-  const mesa = state.mesas.find((m) => m.id === state.mesaTomandoPedidoId);
-  const btn = document.getElementById("btnConfirmarTomarPedido");
-  const carrito = mesa?.carritoEnVivo;
-  const items = carrito?.items || [];
-  if (!mesa || items.length === 0) return;
-  btn.disabled = true;
-  btn.textContent = "Enviando...";
-  try {
-    await addDoc(rCol("pedidos"), {
-      mesaId: mesa.id,
-      mesaNumero: mesa.numero,
-      sesion: mesa.sesionActual,
-      clienteNombre: "Mesero",
-      origen: "mesero", // distingue en mesa.html que este pedido lo confirmó el mesero, no el cliente
-      items, total: carrito.total || 0,
-      estado: "nuevo",
-      timestamp: serverTimestamp()
-    });
-    // Limpia el carrito en vivo del cliente (ya se convirtió en un pedido
-    // real) y avisa a su celular con "carritoTomado" para que borre su
-    // carrito local y sepa que su mesero ya lo envió a cocina.
-    await updateDoc(rRef("mesas", mesa.id), { carritoEnVivo: null, carritoTomado: Date.now() });
-    document.getElementById("modalTomarPedido").classList.add("hidden");
-    state.mesaTomandoPedidoId = null;
-    mostrarToast(`Pedido de la mesa ${mesa.numero} enviado a cocina`);
-    refrescarModalMesa();
-  } catch (err) {
-    console.error("Error confirmando el pedido:", err);
-    mostrarToast("No se pudo enviar el pedido, intenta de nuevo");
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Confirmar y enviar a cocina";
-  }
-});
 
 /* ------------------------------------------------------------------
    TIKET DE CIERRE — combina todos los pedidos de la sesión en una sola
@@ -1169,7 +1043,6 @@ document.addEventListener("click", (e) => {
   if (!el) return;
   document.getElementById(el.dataset.cerrar)?.classList.add("hidden");
   if (el.dataset.cerrar === "modalMesa") state.mesaAbiertaId = null;
-  if (el.dataset.cerrar === "modalTomarPedido") state.mesaTomandoPedidoId = null;
 });
 
 document.getElementById("formPlato").addEventListener("submit", async (e) => {
