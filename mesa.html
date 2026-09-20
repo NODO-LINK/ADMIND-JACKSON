@@ -244,6 +244,18 @@
     </div>
   </header>
 
+  <!-- Aviso de "la mesa ya pidió": visible en cualquier pantalla (portada,
+       menú o "Mi pedido"), no solo lo que ESTE celular pidió — lo que haya
+       enviado a cocina cualquiera de los celulares sentados en la mesa. Se
+       actualiza solo, en tiempo real, junto con el badge de "Mi pedido". -->
+  <button id="bannerPedidoMesa" class="hidden w-full sticky top-[57px] z-20 bg-jackson-rojo text-white text-left px-4 py-2.5 flex items-center justify-between gap-2 active:opacity-90 transition">
+    <span class="flex items-center gap-2 min-w-0">
+      <span data-icono="recibo|w-4 h-4" class="shrink-0"></span>
+      <span class="text-xs font-display font-semibold truncate">Tu mesa ya pidió: <span id="bannerPedidoMesaResumen">0 platos</span></span>
+    </span>
+    <span class="text-[11px] font-display font-bold underline shrink-0">Ver pedido</span>
+  </button>
+
   <!-- Portada: si el restaurante cargó una foto real (desde el panel del
        mesero → Ajustes) se usa de fondo; si no, se ve igual de elegante con
        la textura de marca de siempre. -->
@@ -595,8 +607,7 @@ const state = {
   notificadosListo: new Set(), // ids de pedidos por los que YA se avisó que están listos (persistido, ver claveNotificados)
   audioCtx: null,
   audioListo: false,
-  badgeValorAnterior: 0, // para saber si el contador del carrito subió y animarlo con un rebote
-  ultimoCarritoTomado: null // último valor visto de "carritoTomado" (lo marca el mesero al confirmar "Tomar pedido")
+  badgeValorAnterior: 0 // para saber si el contador del carrito subió y animarlo con un rebote
 };
 
 /* ------------------------------------------------------------------
@@ -630,7 +641,6 @@ async function iniciar() {
     state.mesaNumero = mesa.numero ?? mesaId;
     sessionStorage.setItem("ej_mesaId", state.mesaId);
     state.propinaPreguntada = sessionStorage.getItem(clavePropinaPreguntada()) === "1";
-    state.ultimoCarritoTomado = mesa.carritoTomado || null;
 
     // Si la mesa tiene un código fijo configurado (impreso junto a su QR),
     // hay que escribirlo antes de poder pedir — así, aunque alguien tenga
@@ -697,23 +707,6 @@ async function iniciar() {
       primerAvisoMesa = false;
 
       if (!esPrimerAviso && state.sesion && d.sesionActual !== state.sesion) { bloquearPorMesaLiberada(); return; }
-
-      // El mesero confirmó "Tomar pedido" desde su panel: tomó el carrito que
-      // el cliente tenía armado y lo mandó a cocina. Se limpia el carrito
-      // local (ya es un pedido real, visible en "Mi pedido") y se avisa, para
-      // que el celular del cliente no se quede mostrando platos que ya se
-      // enviaron como si todavía estuvieran por enviar.
-      if (d.carritoTomado && d.carritoTomado !== state.ultimoCarritoTomado) {
-        state.ultimoCarritoTomado = d.carritoTomado;
-        if (Object.keys(state.carrito).length > 0) {
-          state.carrito = {};
-          guardarCarritoLocal();
-          renderMenu();
-          renderCarrito();
-          actualizarBadgePedido();
-          mostrarToast("Tu mesero tomó tu pedido y lo envió a cocina", "check");
-        }
-      }
     });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible" || !state.mesaId || !state.sesion) return;
@@ -1001,29 +994,6 @@ function cargarCarritoLocal() {
 }
 function guardarCarritoLocal() {
   sessionStorage.setItem(claveCarrito(), JSON.stringify(state.carrito));
-  sincronizarCarritoEnVivo();
-}
-
-// Envía en tiempo real lo que el cliente va armando en su carrito (todavía
-// SIN enviar a cocina) hacia el documento de la mesa, para que el mesero lo
-// vea aparecer solo en su panel — con esto, "Tomar pedido" ya no necesita
-// que el mesero escriba nada: solo confirma lo que el cliente ya armó.
-// Con debounce para no escribir en Firestore en cada tap, solo cuando el
-// cliente hace una pausa breve.
-let carritoEnVivoTimeout;
-function sincronizarCarritoEnVivo() {
-  clearTimeout(carritoEnVivoTimeout);
-  carritoEnVivoTimeout = setTimeout(() => {
-    if (!state.mesaId || !state.sesion) return;
-    const items = Object.entries(state.carrito).map(([platoId, it]) => ({
-      platoId, nombre: it.nombre, cantidad: it.cantidad, precio: it.precio, nota: it.nota || ""
-    }));
-    updateDoc(rRef("mesas", state.mesaId), {
-      carritoEnVivo: items.length
-        ? { sesion: state.sesion, items, total: totalCarrito(), actualizado: serverTimestamp() }
-        : null
-    }).catch((e) => console.error("Error sincronizando carrito en vivo:", e));
-  }, 450);
 }
 
 /* Recordar por cuáles pedidos YA se avisó "listo", guardado en sessionStorage
@@ -1087,6 +1057,25 @@ function actualizarBadgePedido() {
     badge.classList.remove("ej-badge-bounce"); void badge.offsetWidth; badge.classList.add("ej-badge-bounce");
   }
   state.badgeValorAnterior = valor;
+  actualizarBannerPedidoMesa();
+}
+
+// Aviso fijo, visible desde cualquier pantalla (portada, menú o "Mi
+// pedido"), de que la mesa YA tiene pedidos enviados a cocina — no solo lo
+// que este celular en particular pidió, sino TODO lo que se haya enviado
+// para la mesa (suscribirPedidos ya trae los pedidos por mesaId + sesión,
+// compartidos entre todos los celulares sentados en la misma mesa). Así,
+// si alguien se suma a la mesa y abre la app, ve de inmediato que ya se
+// pidió algo sin tener que entrar a buscarlo en "Mi pedido".
+function actualizarBannerPedidoMesa() {
+  const banner = document.getElementById("bannerPedidoMesa");
+  if (!banner) return;
+  if (state.pedidos.length === 0) { banner.classList.add("hidden"); return; }
+  const totalItems = state.pedidos.reduce((acc, p) => acc + (p.items || []).reduce((a, i) => a + i.cantidad, 0), 0);
+  const totalMonto = state.pedidos.reduce((acc, p) => acc + (p.total || 0), 0);
+  document.getElementById("bannerPedidoMesaResumen").textContent =
+    `${totalItems} plato${totalItems === 1 ? "" : "s"} · ${fmtMoney(totalMonto)}`;
+  banner.classList.remove("hidden");
 }
 
 /* ------------------------------------------------------------------
@@ -1602,6 +1591,7 @@ function cambiarTab(tab) {
 
 document.querySelectorAll(".ej-tab-btn").forEach((b) => b.addEventListener("click", () => cambiarTab(b.dataset.tab)));
 document.getElementById("btnVerMenu").addEventListener("click", () => cambiarTab("menu"));
+document.getElementById("bannerPedidoMesa").addEventListener("click", () => cambiarTab("pedido"));
 
 // Cierre delegado de modales simples (info del restaurante, etc.)
 document.addEventListener("click", (e) => {
