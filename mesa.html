@@ -188,6 +188,27 @@
 </div>
 
 <!-- ============================================================
+     TOMA ESTA MESA — código fijo impreso junto al QR de la mesa. Se
+     pide una sola vez por sesión: si el mesero desocupa la mesa y
+     llega un cliente nuevo (o el mismo recarga después de eso), hay
+     que volver a escribirlo; mientras la mesa la siga usando el mismo
+     cliente, no vuelve a preguntarse. Las mesas que todavía no tienen
+     un código configurado (mesas viejas) ni siquiera muestran esto.
+============================================================ -->
+<div id="pantallaCodigoMesa" class="hidden fixed inset-0 z-[70] flex items-center justify-center bg-jackson-negro px-8">
+  <div class="text-center max-w-xs w-full ej-modal-pop">
+    <p class="mb-5 flex justify-center text-jackson-rojo" data-icono="candado|w-12 h-12"></p>
+    <h1 class="font-heading text-jackson-blanco text-2xl mb-3">Toma esta mesa</h1>
+    <p class="text-white/60 text-sm leading-relaxed mb-6">Escribe el código que está impreso junto al QR de tu mesa para empezar a pedir.</p>
+    <form id="formCodigoMesa">
+      <input id="inputCodigoMesa" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="••••" class="w-full text-center tracking-[0.5em] font-display font-bold text-2xl bg-white/5 border-2 border-white/15 text-white rounded-xl px-3 py-3.5 mb-3 min-h-[44px] focus:border-jackson-rojo focus:outline-none">
+      <p id="errorCodigoMesa" class="hidden text-jackson-rojo text-xs font-display font-semibold mb-3">Código incorrecto, intenta de nuevo.</p>
+      <button id="btnConfirmarCodigoMesa" type="submit" class="w-full bg-jackson-rojo text-white font-display font-semibold py-3.5 rounded-xl min-h-[44px] active:scale-[.98]">Confirmar mesa</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================
      SESIÓN FINALIZADA — el mesero marcó esta mesa como liberada
      (desocupada) mientras esta misma página seguía abierta en el
      celular de un cliente anterior. En vez de dejarlo seguir pidiendo
@@ -491,7 +512,8 @@ const ICONOS = {
   reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5 V12 L15.3 14"/>',
   telefono: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.3 H13"/>',
   cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>',
-  volver: '<path d="M15 5 L7 12 L15 19"/>'
+  volver: '<path d="M15 5 L7 12 L15 19"/>',
+  candado: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11 V7.5 A4 4 0 0 1 16 7.5 V11"/>'
 };
 function ic(nombre, cls) {
   cls = cls || "w-4 h-4";
@@ -610,6 +632,17 @@ async function iniciar() {
     state.propinaPreguntada = sessionStorage.getItem(clavePropinaPreguntada()) === "1";
     state.ultimoCarritoTomado = mesa.carritoTomado || null;
 
+    // Si la mesa tiene un código fijo configurado (impreso junto a su QR),
+    // hay que escribirlo antes de poder pedir — así, aunque alguien tenga
+    // guardado el link o lo recargue después de que el mesero liberó la
+    // mesa, no puede "tomarla" sin estar físicamente ahí para ver el código.
+    // Solo se pregunta una vez por sesión real de mesa (ver requiereCodigoMesa).
+    if (requiereCodigoMesa(mesa, state.mesaId)) {
+      clearTimeout(avisoLento);
+      await pedirCodigoMesa(mesa);
+      document.getElementById("pantallaCarga").classList.remove("hidden");
+    }
+
     // Crear la sesión dentro de una transacción (no un simple "leer y luego
     // escribir") es importante: si dos celulares de la MISMA mesa escanean el
     // QR casi al mismo tiempo (dos comensales abriendo el link juntos), sin
@@ -631,6 +664,13 @@ async function iniciar() {
       }
     }));
     state.sesion = sesion;
+
+    // Ya se validó el código para esta sesión exacta de la mesa: mientras
+    // sesionActual no cambie (es decir, mientras el mesero no la libere), no
+    // se le vuelve a pedir el código a este celular.
+    if (mesa.codigo) {
+      try { sessionStorage.setItem(claveSesionValidada(), sesion); } catch (e) { /* sin problema si el celular lo bloquea */ }
+    }
 
     // Si el mesero "desocupa" la mesa mientras el cliente sigue con la página
     // abierta (ya se fue / dejó la pestaña olvidada), NO lo dejamos seguir
@@ -723,12 +763,13 @@ function bloquearPorMesaLiberada() {
     sessionStorage.removeItem(claveCarrito());
     sessionStorage.removeItem(clavePropinaPreguntada());
     sessionStorage.removeItem(claveNotificadosListo());
+    sessionStorage.removeItem(claveSesionValidada());
     sessionStorage.removeItem("ej_mesaId");
   } catch (e) { /* si el celular bloquea sessionStorage, no pasa nada grave */ }
 
   clearTimeout(transicionTimeout);
   clearTimeout(toastTimeout);
-  ["modalVisor3D", "modalInfo", "modalNombre", "modalCuenta", "modalPropinaInicial", "pantallaTransicion", "toast", "app", "navInferior", "pantallaCarga", "pantallaError"]
+  ["modalVisor3D", "modalInfo", "modalNombre", "modalCuenta", "modalPropinaInicial", "pantallaTransicion", "toast", "app", "navInferior", "pantallaCarga", "pantallaError", "pantallaCodigoMesa"]
     .forEach((id) => document.getElementById(id)?.classList.add("hidden"));
 
   pantalla.classList.remove("hidden");
@@ -891,6 +932,54 @@ function notificarNavegadorPedidoListo() {
 /* ------------------------------------------------------------------
    CARRITO (persistido en sessionStorage por si recargan la página)
 ------------------------------------------------------------------ */
+function claveSesionValidada() { return "ej_sesion_validada_" + state.mesaId; }
+
+// ¿Hay que mostrarle a este celular la pantalla de "Toma esta mesa"?
+// - Si la mesa no tiene código configurado (mesas viejas, todavía no
+//   reimpresas) nunca se pregunta: se sigue como siempre.
+// - Si ya se validó el código para la sesión ACTUAL de la mesa (mismo
+//   sesionActual guardado en este celular), tampoco: ya se demostró que
+//   quien tiene este celular está en la mesa correcta.
+// - En cualquier otro caso (mesa recién liberada, primera vez, u otro
+//   celular) sí se pregunta.
+function requiereCodigoMesa(mesa, mesaId) {
+  if (!mesa.codigo) return false;
+  let validada = null;
+  try { validada = sessionStorage.getItem(claveSesionValidada()); } catch (e) { /* sin problema */ }
+  return !(mesa.sesionActual && validada === mesa.sesionActual);
+}
+
+// Muestra la pantalla de código y no resuelve la promesa hasta que el
+// cliente escriba el código correcto (no hay forma de "saltarla").
+function pedirCodigoMesa(mesa) {
+  return new Promise((resolve) => {
+    document.getElementById("pantallaCarga").classList.add("hidden");
+    const pantalla = document.getElementById("pantallaCodigoMesa");
+    const form = document.getElementById("formCodigoMesa");
+    const input = document.getElementById("inputCodigoMesa");
+    const error = document.getElementById("errorCodigoMesa");
+
+    error.classList.add("hidden");
+    input.value = "";
+    pantalla.classList.remove("hidden");
+    setTimeout(() => input.focus(), 350);
+
+    function onSubmit(e) {
+      e.preventDefault();
+      const valor = input.value.trim();
+      if (valor && valor === String(mesa.codigo)) {
+        form.removeEventListener("submit", onSubmit);
+        pantalla.classList.add("hidden");
+        resolve();
+      } else {
+        error.classList.remove("hidden");
+        input.select();
+      }
+    }
+    form.addEventListener("submit", onSubmit);
+  });
+}
+
 function claveCarrito() { return "ej_carrito_" + state.mesaId; }
 function cargarCarritoLocal() {
   try { state.carrito = JSON.parse(sessionStorage.getItem(claveCarrito())) || {}; }
