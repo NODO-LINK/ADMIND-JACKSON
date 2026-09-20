@@ -447,7 +447,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getFirestore, doc, getDoc, updateDoc, addDoc, collection,
-  query, where, onSnapshot, serverTimestamp
+  query, where, onSnapshot, serverTimestamp, runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -573,7 +573,8 @@ const state = {
   notificadosListo: new Set(), // ids de pedidos por los que YA se avisó que están listos (persistido, ver claveNotificados)
   audioCtx: null,
   audioListo: false,
-  badgeValorAnterior: 0 // para saber si el contador del carrito subió y animarlo con un rebote
+  badgeValorAnterior: 0, // para saber si el contador del carrito subió y animarlo con un rebote
+  ultimoCarritoTomado: null // último valor visto de "carritoTomado" (lo marca el mesero al confirmar "Tomar pedido")
 };
 
 /* ------------------------------------------------------------------
@@ -607,12 +608,28 @@ async function iniciar() {
     state.mesaNumero = mesa.numero ?? mesaId;
     sessionStorage.setItem("ej_mesaId", state.mesaId);
     state.propinaPreguntada = sessionStorage.getItem(clavePropinaPreguntada()) === "1";
+    state.ultimoCarritoTomado = mesa.carritoTomado || null;
 
-    let sesion = mesa.sesionActual;
-    if (!sesion) {
-      sesion = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
-      await conLimiteDeTiempo(updateDoc(rRef("mesas", state.mesaId), { activa: true, sesionActual: sesion }));
-    }
+    // Crear la sesión dentro de una transacción (no un simple "leer y luego
+    // escribir") es importante: si dos celulares de la MISMA mesa escanean el
+    // QR casi al mismo tiempo (dos comensales abriendo el link juntos), sin
+    // esto cada uno podía terminar creando su propia sesión por separado —
+    // uno le "robaba" la sesión al otro sin darse cuenta — y entonces cada
+    // celular solo veía SU PARTE del pedido, nunca el de la mesa completa.
+    // Con la transacción, el segundo celular que llega encuentra la sesión
+    // que ya creó el primero y la reutiliza, así ambos quedan sincronizados.
+    let sesion;
+    await conLimiteDeTiempo(runTransaction(db, async (tx) => {
+      const ref = rRef("mesas", state.mesaId);
+      const snap = await tx.get(ref);
+      const datos = snap.data() || {};
+      if (datos.sesionActual) {
+        sesion = datos.sesionActual;
+      } else {
+        sesion = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random());
+        tx.update(ref, { activa: true, sesionActual: sesion });
+      }
+    }));
     state.sesion = sesion;
 
     // Si el mesero "desocupa" la mesa mientras el cliente sigue con la página
@@ -624,7 +641,25 @@ async function iniciar() {
     // vivo, también una relectura apenas vuelve a esta pestaña.
     onSnapshot(rRef("mesas", state.mesaId), (s) => {
       const d = s.data();
-      if (d && state.sesion && d.sesionActual !== state.sesion) bloquearPorMesaLiberada();
+      if (!d) return;
+      if (state.sesion && d.sesionActual !== state.sesion) { bloquearPorMesaLiberada(); return; }
+
+      // El mesero confirmó "Tomar pedido" desde su panel: tomó el carrito que
+      // el cliente tenía armado y lo mandó a cocina. Se limpia el carrito
+      // local (ya es un pedido real, visible en "Mi pedido") y se avisa, para
+      // que el celular del cliente no se quede mostrando platos que ya se
+      // enviaron como si todavía estuvieran por enviar.
+      if (d.carritoTomado && d.carritoTomado !== state.ultimoCarritoTomado) {
+        state.ultimoCarritoTomado = d.carritoTomado;
+        if (Object.keys(state.carrito).length > 0) {
+          state.carrito = {};
+          guardarCarritoLocal();
+          renderMenu();
+          renderCarrito();
+          actualizarBadgePedido();
+          mostrarToast("Tu mesero tomó tu pedido y lo envió a cocina", "check");
+        }
+      }
     });
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState !== "visible" || !state.mesaId || !state.sesion) return;
@@ -863,6 +898,29 @@ function cargarCarritoLocal() {
 }
 function guardarCarritoLocal() {
   sessionStorage.setItem(claveCarrito(), JSON.stringify(state.carrito));
+  sincronizarCarritoEnVivo();
+}
+
+// Envía en tiempo real lo que el cliente va armando en su carrito (todavía
+// SIN enviar a cocina) hacia el documento de la mesa, para que el mesero lo
+// vea aparecer solo en su panel — con esto, "Tomar pedido" ya no necesita
+// que el mesero escriba nada: solo confirma lo que el cliente ya armó.
+// Con debounce para no escribir en Firestore en cada tap, solo cuando el
+// cliente hace una pausa breve.
+let carritoEnVivoTimeout;
+function sincronizarCarritoEnVivo() {
+  clearTimeout(carritoEnVivoTimeout);
+  carritoEnVivoTimeout = setTimeout(() => {
+    if (!state.mesaId || !state.sesion) return;
+    const items = Object.entries(state.carrito).map(([platoId, it]) => ({
+      platoId, nombre: it.nombre, cantidad: it.cantidad, precio: it.precio, nota: it.nota || ""
+    }));
+    updateDoc(rRef("mesas", state.mesaId), {
+      carritoEnVivo: items.length
+        ? { sesion: state.sesion, items, total: totalCarrito(), actualizado: serverTimestamp() }
+        : null
+    }).catch((e) => console.error("Error sincronizando carrito en vivo:", e));
+  }, 450);
 }
 
 /* Recordar por cuáles pedidos YA se avisó "listo", guardado en sessionStorage
@@ -1355,7 +1413,7 @@ function renderHistorial() {
         <span class="text-xs text-jackson-negro/40 dark:text-white/40">${horaRelativa(p.timestamp)}</span>
         <span class="font-display font-bold text-sm text-jackson-rojo">${fmtMoney(p.total)}</span>
       </div>
-      ${p.origen === "mesero" ? `<p class="text-[10px] font-display font-bold text-jackson-rojo/80 uppercase tracking-wide mb-2 -mt-1">Agregado por tu mesero</p>` : ""}
+      ${p.origen === "mesero" ? `<p class="text-[10px] font-display font-bold text-jackson-rojo/80 uppercase tracking-wide mb-2 -mt-1">Enviado por tu mesero</p>` : ""}
       <ul class="text-sm mb-4 space-y-0.5">
         ${p.items.map((i) => `<li><div class="flex justify-between"><span>${i.cantidad}× ${i.nombre}</span></div>${i.nota ? `<p class="text-[11px] text-jackson-negro/40 dark:text-white/40 italic">"${i.nota}"</p>` : ""}</li>`).join("")}
       </ul>
