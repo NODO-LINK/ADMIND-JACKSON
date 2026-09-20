@@ -679,10 +679,24 @@ async function iniciar() {
     // de nuevo. Doble chequeo: en tiempo real (onSnapshot) y, por si el
     // celular tenía la pestaña en segundo plano y se perdió el aviso en
     // vivo, también una relectura apenas vuelve a esta pestaña.
+    // ¿Por qué "primerAvisoMesa"? Justo antes de esto se creó/confirmó la
+    // sesión con una transacción, ya reconocida por el servidor. Pero un
+    // onSnapshot recién suscrito a veces entrega su PRIMER aviso todavía con
+    // una versión guardada en caché de ANTES (la del getDoc de más arriba,
+    // con sesionActual vacío) y recién en el segundo aviso llega el dato
+    // real y actualizado. Sin este resguardo, ese primer aviso "viejo" se
+    // veía como si la mesa ya se hubiera liberado, mandando al cliente
+    // directo a la pantalla de "Mesa liberada" apenas escribía el código
+    // bien. Por eso el bloqueo por sesión distinta solo se evalúa desde el
+    // segundo aviso en adelante.
+    let primerAvisoMesa = true;
     onSnapshot(rRef("mesas", state.mesaId), (s) => {
       const d = s.data();
       if (!d) return;
-      if (state.sesion && d.sesionActual !== state.sesion) { bloquearPorMesaLiberada(); return; }
+      const esPrimerAviso = primerAvisoMesa;
+      primerAvisoMesa = false;
+
+      if (!esPrimerAviso && state.sesion && d.sesionActual !== state.sesion) { bloquearPorMesaLiberada(); return; }
 
       // El mesero confirmó "Tomar pedido" desde su panel: tomó el carrito que
       // el cliente tenía armado y lo mandó a cocina. Se limpia el carrito
