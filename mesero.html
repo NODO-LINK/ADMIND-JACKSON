@@ -1236,6 +1236,7 @@ document.getElementById("formNuevaMesa").addEventListener("submit", async (e) =>
   await setDoc(rRef("mesas", numero), {
     numero: Number(numero),
     qrCode: numero,
+    codigo: generarCodigoMesa(),
     activa: false,
     sesionActual: null
   });
@@ -1249,13 +1250,39 @@ function urlMesa(mesaId) {
   return `${base}?mesa=${mesaId}`;
 }
 
+// Código fijo de 4 dígitos que el cliente debe escribir en su celular para
+// "tomar" la mesa (se imprime junto al QR). Es fijo a propósito: nunca
+// rota, así no hay que reimprimir nada — el cliente lo ve en la mesa y lo
+// escribe una sola vez por visita.
+function generarCodigoMesa() {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+// Mesas creadas antes de esta función (o cualquier mesa a la que por algún
+// motivo le falte el código) reciben uno automáticamente la primera vez que
+// se abre esta pestaña, para que no haya que borrarlas y crearlas de nuevo.
+const codigosMesaEnProceso = new Set();
+function asegurarCodigosMesa() {
+  state.mesas.forEach((m) => {
+    if (m.codigo || codigosMesaEnProceso.has(m.id)) return;
+    codigosMesaEnProceso.add(m.id);
+    updateDoc(rRef("mesas", m.id), { codigo: generarCodigoMesa() })
+      .catch((e) => { console.error("Error generando código de mesa:", e); codigosMesaEnProceso.delete(m.id); });
+  });
+}
+
 function renderHojaQr() {
+  asegurarCodigosMesa();
   const hoja = document.getElementById("hojaQr");
   hoja.innerHTML = state.mesas.map((m) => `
     <div class="bg-white rounded-2xl p-4 text-center shadow-sm shadow-black/[0.04]">
       <p class="font-heading text-lg mb-2">El Jackson — Mesa ${m.numero}</p>
       <canvas id="qr-${m.id}" class="mx-auto"></canvas>
       <p class="text-[10px] text-jackson-negro/40 mt-2 break-all">${urlMesa(m.id)}</p>
+      ${m.codigo ? `<div class="mt-3 pt-3 border-t border-dashed border-jackson-negro/15">
+        <p class="text-[9px] font-display font-bold uppercase tracking-widest text-jackson-negro/40">Código de la mesa</p>
+        <p class="font-display font-black text-2xl tracking-[0.35em] text-jackson-rojo">${m.codigo}</p>
+      </div>` : ""}
       <button data-descargar-qr="${m.id}" class="ej-no-print mt-2 text-xs font-display font-semibold border-2 border-jackson-negro/10 rounded-xl px-3 py-2 min-h-[44px] active:scale-[.97]">Descargar PNG</button>
     </div>`).join("");
 
