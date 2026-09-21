@@ -10,29 +10,31 @@
 <!-- ============================================================
      TAILWIND (CDN, sin build) + paleta e identidad de El Jackson
 ============================================================ -->
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com" onerror="window.__ejTailwindFallo = true;"></script>
 <script>
-  tailwind.config = {
-    darkMode: 'class',
-    theme: {
-      extend: {
-        colors: {
-          jackson: {
-            rojo: '#B0202E',
-            rojoOscuro: '#8A1923',
-            negro: '#111111',
-            crema: '#F4F1EF',
-            blanco: '#FFFFFF'
+  try {
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            jackson: {
+              rojo: '#B0202E',
+              rojoOscuro: '#8A1923',
+              negro: '#111111',
+              crema: '#F4F1EF',
+              blanco: '#FFFFFF'
+            }
+          },
+          fontFamily: {
+            heading: ['"Playfair Display"', 'serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+            body: ['"Manrope"', 'sans-serif']
           }
-        },
-        fontFamily: {
-          heading: ['"Playfair Display"', 'serif'],
-          display: ['"Space Grotesk"', 'sans-serif'],
-          body: ['"Manrope"', 'sans-serif']
         }
       }
-    }
-  };
+    };
+  } catch (e) { window.__ejTailwindFallo = true; }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,6 +46,24 @@
 <style>
   :root{ --ej-spring: cubic-bezier(.34,1.56,.64,1); --ej-spring-soft: cubic-bezier(.22,1,.36,1); }
   html,body{ overscroll-behavior:none; background:#F4F1EF; }
+  /* Aviso de respaldo si el CDN de Tailwind no llega a cargar (señal débil / sin
+     internet). Este bloque es CSS plano, no depende de Tailwind, así que se ve
+     bien incluso cuando todo lo demás falla. */
+  #avisoSinEstilo{
+    display:none;
+    position:fixed; inset:0; z-index:99999;
+    background:#F4F1EF; color:#111111;
+    font-family: Georgia, 'Times New Roman', serif;
+    padding:28px 22px; box-sizing:border-box;
+    text-align:center; align-items:center; justify-content:center; flex-direction:column;
+  }
+  #avisoSinEstilo.ej-visible{ display:flex; }
+  #avisoSinEstilo h2{ font-size:22px; margin:0 0 12px 0; color:#B0202E; }
+  #avisoSinEstilo p{ font-size:16px; line-height:1.5; margin:0 0 22px 0; max-width:340px; }
+  #avisoSinEstilo button{
+    background:#B0202E; color:#FFFFFF; border:none; border-radius:10px;
+    padding:14px 28px; font-size:16px; font-weight:bold; cursor:pointer;
+  }
   /* Sin doble-tap-zoom / gestos raros en la app en general */
   body{ touch-action: pan-y; }
   /* EXCEPCIÓN: dentro del visor 3D sí debe funcionar el pellizco para girar/hacer zoom al plato */
@@ -154,6 +174,27 @@
 </style>
 </head>
 <body class="font-body text-jackson-negro dark:text-white min-h-screen dark:bg-[#0c0c0c]">
+
+<!-- Aviso de respaldo: se muestra si el diseño (Tailwind, vía CDN) no logró cargar,
+     algo que puede pasar con señal de datos débil. Sin esto, la página se ve
+     rota y sin explicación. -->
+<div id="avisoSinEstilo">
+  <h2>No se pudo cargar el diseño de la página</h2>
+  <p>Tu conexión a internet parece débil o inestable. Revisa tu señal o Wi-Fi e inténtalo de nuevo.</p>
+  <button onclick="location.reload()">Reintentar</button>
+</div>
+<script>
+  (function () {
+    function chequearTailwind() {
+      if (window.__ejTailwindFallo || typeof window.tailwind === "undefined") {
+        var el = document.getElementById("avisoSinEstilo");
+        if (el) el.className = "ej-visible";
+      }
+    }
+    chequearTailwind();
+    setTimeout(chequearTailwind, 4000);
+  })();
+</script>
 
 <!-- Fondo de toda la app: foto del restaurante desenfocada. Es un archivo
      fijo ("fondo.jpg") subido directamente al repositorio de GitHub, junto
