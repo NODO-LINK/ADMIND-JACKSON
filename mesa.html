@@ -1485,15 +1485,7 @@ function suscribirPedidos() {
     }
 
     renderHistorial();
-  }, (err) => {
-    // Este error normalmente es invisible (solo queda en la consola del
-    // navegador), y como esto se prueba desde el celular, nadie lo ve. Por
-    // eso, mientras se investiga por qué no están llegando los pedidos, se
-    // muestra también en pantalla — así se puede leer/copiar el mensaje
-    // exacto de Firebase sin necesitar herramientas de desarrollador.
-    console.error("Error leyendo pedidos:", err);
-    alert("Error leyendo pedidos de la mesa:\n\n" + (err.code || "") + "\n" + (err.message || err));
-  });
+  }, (err) => console.error("Error leyendo pedidos:", err));
 }
 
 function renderHistorial() {
