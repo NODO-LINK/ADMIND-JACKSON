@@ -9,28 +9,30 @@
 <!-- ============================================================
      TAILWIND (CDN, sin build) + misma identidad visual de mesa.html
 ============================================================ -->
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com" onerror="window.__ejTailwindFallo = true;"></script>
 <script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          jackson: {
-            rojo: '#B0202E',
-            rojoOscuro: '#8A1923',
-            negro: '#111111',
-            crema: '#F4F1EF',
-            blanco: '#FFFFFF'
+  try {
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            jackson: {
+              rojo: '#B0202E',
+              rojoOscuro: '#8A1923',
+              negro: '#111111',
+              crema: '#F4F1EF',
+              blanco: '#FFFFFF'
+            }
+          },
+          fontFamily: {
+            heading: ['"Playfair Display"', 'serif'],
+            display: ['"Space Grotesk"', 'sans-serif'],
+            body: ['"Manrope"', 'sans-serif']
           }
-        },
-        fontFamily: {
-          heading: ['"Playfair Display"', 'serif'],
-          display: ['"Space Grotesk"', 'sans-serif'],
-          body: ['"Manrope"', 'sans-serif']
         }
       }
-    }
-  };
+    };
+  } catch (e) { window.__ejTailwindFallo = true; }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -41,6 +43,24 @@
 
 <style>
   html,body{ background:#F4F1EF; }
+  /* Aviso de respaldo si el CDN de Tailwind no llega a cargar (señal débil / sin
+     internet). Este bloque es CSS plano, no depende de Tailwind, así que se ve
+     bien incluso cuando todo lo demás falla. */
+  #avisoSinEstilo{
+    display:none;
+    position:fixed; inset:0; z-index:99999;
+    background:#F4F1EF; color:#111111;
+    font-family: Georgia, 'Times New Roman', serif;
+    padding:28px 22px; box-sizing:border-box;
+    text-align:center; align-items:center; justify-content:center; flex-direction:column;
+  }
+  #avisoSinEstilo.ej-visible{ display:flex; }
+  #avisoSinEstilo h2{ font-size:22px; margin:0 0 12px 0; color:#B0202E; }
+  #avisoSinEstilo p{ font-size:16px; line-height:1.5; margin:0 0 22px 0; max-width:340px; }
+  #avisoSinEstilo button{
+    background:#B0202E; color:#FFFFFF; border:none; border-radius:10px;
+    padding:14px 28px; font-size:16px; font-weight:bold; cursor:pointer;
+  }
   ::-webkit-scrollbar{ width:8px; height:8px; }
   ::-webkit-scrollbar-thumb{ background:#11111122; border-radius:8px; }
   @keyframes ejPulso{ 0%,100%{opacity:1} 50%{opacity:.35} }
@@ -79,6 +99,27 @@
 </style>
 </head>
 <body class="font-body text-jackson-negro min-h-screen pb-10">
+
+<!-- Aviso de respaldo: se muestra si el diseño (Tailwind, vía CDN) no logró cargar,
+     algo que puede pasar con señal de datos débil. Sin esto, la página se ve
+     rota y sin explicación. -->
+<div id="avisoSinEstilo">
+  <h2>No se pudo cargar el diseño de la página</h2>
+  <p>Tu conexión a internet parece débil o inestable. Revisa tu señal o Wi-Fi e inténtalo de nuevo.</p>
+  <button onclick="location.reload()">Reintentar</button>
+</div>
+<script>
+  (function () {
+    function chequearTailwind() {
+      if (window.__ejTailwindFallo || typeof window.tailwind === "undefined") {
+        var el = document.getElementById("avisoSinEstilo");
+        if (el) el.className = "ej-visible";
+      }
+    }
+    chequearTailwind();
+    setTimeout(chequearTailwind, 4000);
+  })();
+</script>
 
 <!-- ============================================================
      PANTALLA DE LOGIN
@@ -706,8 +747,9 @@ function tileMesa(m, index, total) {
       <span class="ej-silla" style="right:-9px; top:50%; transform:translateY(-50%) rotate(90deg);"></span>
       <div class="ej-mesa-tile absolute inset-0 rounded-full flex flex-col items-center justify-center select-none shadow-md shadow-black/15 ${color} ${urgente ? "ring-4 ring-jackson-rojo" : ""}">
         ${urgente ? `<span class="ej-pulso absolute -top-1.5 -right-1.5 bg-jackson-rojo text-white text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow">${ic(llamando ? "campana" : "recibo", "w-3.5 h-3.5")}</span>` : ""}
+        ${(m.activa && porServir === 0) ? `<span class="absolute -bottom-1.5 -right-1.5 bg-white text-emerald-600 text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow" title="Ya se sirvió todo">${ic("check", "w-3.5 h-3.5")}</span>` : ""}
         <span class="font-display font-extrabold text-base sm:text-lg leading-none">${m.numero}</span>
-        <span class="text-[8px] sm:text-[9px] mt-0.5 font-display font-semibold text-center leading-tight ${m.activa ? "opacity-90" : "opacity-60"}">${!m.activa ? "Libre" : (porServir > 0 ? porServir + " x servir" : "Servido")}</span>
+        <span class="text-[8px] sm:text-[9px] mt-0.5 font-display font-semibold text-center leading-tight ${m.activa ? "opacity-90" : "opacity-60"}">${!m.activa ? "Libre" : (porServir > 0 ? porServir + " x servir" : "Ocupada")}</span>
       </div>
     </div>
   </div>`;
