@@ -185,14 +185,32 @@
 </div>
 <script>
   (function () {
-    function chequearTailwind() {
-      if (window.__ejTailwindFallo || typeof window.tailwind === "undefined") {
-        var el = document.getElementById("avisoSinEstilo");
-        if (el) el.className = "ej-visible";
-      }
+    // Con señal débil, el CDN de Tailwind puede tardar varios segundos en cargar
+    // sin que eso signifique que falló. Por eso revisamos varias veces durante
+    // 20 segundos antes de dar por hecho que no cargó, y si carga tarde (después
+    // de haber mostrado el aviso), lo ocultamos automáticamente.
+    var visible = false;
+    function mostrarAviso() {
+      if (visible) return;
+      visible = true;
+      var el = document.getElementById("avisoSinEstilo");
+      if (el) el.className = "ej-visible";
     }
-    chequearTailwind();
-    setTimeout(chequearTailwind, 4000);
+    function ocultarAviso() {
+      if (!visible) return;
+      visible = false;
+      var el = document.getElementById("avisoSinEstilo");
+      if (el) el.className = "";
+    }
+    function tailwindListo() { return typeof window.tailwind !== "undefined"; }
+    var segundos = 0;
+    var maxSegundos = 120;
+    (function chequear() {
+      if (tailwindListo()) { ocultarAviso(); return; }
+      if (window.__ejTailwindFallo || segundos >= 20) mostrarAviso();
+      segundos += 2;
+      if (segundos < maxSegundos) setTimeout(chequear, 2000);
+    })();
   })();
 </script>
 
