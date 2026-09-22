@@ -183,6 +183,7 @@
       <button data-tab="mesas" class="ej-tab-btn ej-tab-activo px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Mesas</button>
       <button data-tab="menu" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Menú</button>
       <button data-tab="qr" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Códigos QR</button>
+      <button data-tab="caja" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Caja</button>
       <button data-tab="ajustes" class="ej-tab-btn px-4 py-2 rounded-full text-xs font-display font-semibold min-h-[36px] bg-white/10 active:scale-[.96]">Ajustes</button>
     </nav>
   </header>
@@ -267,6 +268,52 @@
       <button id="btnImprimirQr" class="bg-jackson-negro text-white font-display font-semibold text-sm px-4 py-2.5 rounded-xl min-h-[44px] active:scale-[.97] flex items-center gap-1.5"><span data-icono="impresora|w-4 h-4"></span>Imprimir todos</button>
     </div>
     <div id="hojaQr" class="grid grid-cols-2 sm:grid-cols-3 gap-6"></div>
+  </section>
+
+  <!-- ==========================================================
+       TAB: CAJA — corte del día. Se arma solo con las cuentas que
+       cobraste y registraste al liberar cada mesa (colección "pagos").
+  ========================================================== -->
+  <section id="tabCaja" class="hidden px-4 py-5 max-w-5xl mx-auto">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="font-display font-bold text-lg">Caja — corte del día</h2>
+        <p class="text-xs text-jackson-negro/40">Solo cuenta lo que registraste con "Cobrar y liberar mesa".</p>
+      </div>
+      <div class="flex items-center gap-2 ej-no-print">
+        <input id="cajaFecha" type="date" class="border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 min-h-[44px] text-sm">
+        <button id="btnImprimirCaja" class="bg-jackson-negro text-white font-display font-semibold text-sm px-4 py-2.5 rounded-xl min-h-[44px] active:scale-[.97] flex items-center gap-1.5"><span data-icono="impresora|w-4 h-4"></span>Imprimir corte</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
+      <div class="bg-white rounded-2xl p-4 shadow-sm shadow-black/[0.04]">
+        <p class="text-2xl font-display font-bold" id="cajaCuentas">0</p>
+        <p class="text-xs text-jackson-negro/50">Cuentas cobradas</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm shadow-black/[0.04]">
+        <p class="text-2xl font-display font-bold" id="cajaPlatos">0</p>
+        <p class="text-xs text-jackson-negro/50">Platos vendidos</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm shadow-black/[0.04]">
+        <p class="text-2xl font-display font-bold" id="cajaBebidas">0</p>
+        <p class="text-xs text-jackson-negro/50">Bebidas vendidas</p>
+      </div>
+      <div class="bg-white rounded-2xl p-4 shadow-sm shadow-black/[0.04] col-span-2 sm:col-span-1">
+        <p class="text-lg font-display font-bold" id="cajaPropinas">$0.00 + 0,00 Bs</p>
+        <p class="text-xs text-jackson-negro/50">Propinas</p>
+      </div>
+      <div class="bg-jackson-negro text-white rounded-2xl p-4 shadow-sm shadow-black/[0.04]">
+        <p class="text-lg font-display font-bold" id="cajaTotalUsd">$0.00</p>
+        <p class="text-xs text-white/50">Generado en dólares</p>
+      </div>
+      <div class="bg-jackson-rojo text-white rounded-2xl p-4 shadow-sm shadow-black/[0.04]">
+        <p class="text-lg font-display font-bold" id="cajaTotalBs">0,00 Bs</p>
+        <p class="text-xs text-white/70">Generado en bolívares</p>
+      </div>
+    </div>
+
+    <div id="listaCaja" class="bg-white rounded-2xl shadow-sm shadow-black/[0.04] divide-y divide-black/5 overflow-hidden"></div>
   </section>
 
   <!-- ==========================================================
@@ -390,6 +437,62 @@
   </div>
 </div>
 
+<!-- ============================================================
+     MODAL: REGISTRAR PAGO (cobrar la cuenta y liberar la mesa)
+============================================================ -->
+<div id="modalPago" class="hidden fixed inset-0 z-[58] flex items-center justify-center px-4 ej-no-print">
+  <div class="ej-modal-backdrop absolute inset-0 bg-black/50 backdrop-blur-[2px]" data-cerrar="modalPago"></div>
+  <form id="formPago" class="ej-modal-card relative bg-white w-full max-w-md rounded-3xl p-6 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black/20">
+    <h3 class="font-display font-bold text-lg mb-1">Registrar pago — Mesa <span id="pagoMesaNumero"></span></h3>
+    <p class="text-xs text-jackson-negro/40 mb-4">Al confirmar, la cuenta queda guardada en tu caja y la mesa se libera para el próximo cliente.</p>
+    <input type="hidden" id="pagoMesaId">
+
+    <div class="bg-jackson-crema rounded-xl p-3.5 flex items-center justify-between mb-4">
+      <span class="text-xs font-display font-semibold text-jackson-negro/50">Total de la cuenta</span>
+      <span class="font-display font-bold text-lg" id="pagoTotalUsd">$0.00</span>
+    </div>
+
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-display font-semibold text-jackson-negro/60">Método de pago</label>
+        <select id="pagoMetodo" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px] bg-white">
+          <option value="pago_movil">Pago móvil</option>
+          <option value="efectivo">Efectivo</option>
+          <option value="transferencia">Transferencia</option>
+          <option value="tarjeta">Tarjeta / punto</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-display font-semibold text-jackson-negro/60">Monto recibido (Bs)</label>
+          <input id="pagoMontoBs" type="number" step="0.01" min="0" required class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]" placeholder="0.00">
+        </div>
+        <div>
+          <label class="text-xs font-display font-semibold text-jackson-negro/60" id="pagoReferenciaLabel">Número de referencia</label>
+          <input id="pagoReferencia" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]" placeholder="Últimos dígitos">
+        </div>
+      </div>
+      <p class="text-xs font-display font-semibold text-jackson-negro/60 pt-1">Propina recibida (opcional)</p>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[11px] text-jackson-negro/40">En dólares ($)</label>
+          <input id="pagoPropinaUsd" type="number" step="0.01" min="0" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]" placeholder="0.00">
+        </div>
+        <div>
+          <label class="text-[11px] text-jackson-negro/40">En bolívares (Bs)</label>
+          <input id="pagoPropinaBs" type="number" step="0.01" min="0" class="w-full border-2 border-jackson-negro/10 rounded-xl px-3 py-2.5 mt-1 min-h-[44px]" placeholder="0.00">
+        </div>
+      </div>
+    </div>
+
+    <div class="flex gap-2 mt-5">
+      <button type="button" data-cerrar="modalPago" class="flex-1 font-display font-semibold text-sm px-4 py-3 min-h-[44px] rounded-xl active:scale-[.97] border-2 border-jackson-negro/10">Cancelar</button>
+      <button class="flex-1 bg-jackson-rojo text-white font-display font-semibold text-sm px-5 py-3 rounded-xl min-h-[44px] active:scale-[.97] shadow-sm shadow-jackson-rojo/20">Confirmar pago</button>
+    </div>
+  </form>
+</div>
+
 <!-- Toast -->
 <div id="toast" class="hidden fixed bottom-6 left-1/2 z-[80] -translate-x-1/2 max-w-[85vw] text-center bg-jackson-negro text-white text-sm font-display font-medium px-5 py-3 rounded-2xl shadow-lg shadow-black/20"></div>
 
@@ -441,6 +544,11 @@
            allow read: if true;                 // el cliente lee wifi/horario/redes/portada
            allow write: if request.auth != null; // solo el mesero los edita
          }
+         match /pagos/{pagoId} {
+           allow create: if request.auth != null; // el mesero registra el pago al cobrar
+           allow read: if request.auth != null;    // solo el mesero ve la caja del día
+           allow update, delete: if false;         // los pagos quedan fijos para la contabilidad
+         }
        }
      }
    }
@@ -472,6 +580,29 @@ const rRef = (...seg) => doc(db, "restaurants", RESTAURANT_ID, ...seg);
 const rCol = (...seg) => collection(db, "restaurants", RESTAURANT_ID, ...seg);
 
 const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
+const fmtBs = (n) => Number(n || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " Bs";
+// Fecha del día LOCAL del dispositivo (no UTC), para que la caja agrupe los
+// pagos por el día real del restaurante sin importar la zona horaria del server.
+function fechaLocalDe(fecha) {
+  const d = fecha instanceof Date ? fecha : new Date(fecha);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+function fechaLocalHoy() { return fechaLocalDe(new Date()); }
+const METODO_PAGO_LABEL = { efectivo: "Efectivo", pago_movil: "Pago móvil", transferencia: "Transferencia", tarjeta: "Tarjeta / punto", otro: "Otro" };
+
+// Corrige solo el error MÁS común al subir fotos/modelos: pegar la dirección
+// de GitHub tal cual se ve en el navegador al mirar el archivo (con "/blob/"
+// en medio), que no sirve para mostrar la imagen. La convertimos sola a la
+// dirección real del archivo, así no hace falta acordarse de hacerlo a mano
+// cada vez que se sube una foto nueva.
+function corregirUrlGithub(url) {
+  const limpia = (url || "").trim();
+  const m = limpia.match(/^https?:\/\/github\.com\/([^\/]+)\/([^\/]+)\/blob\/([^\/]+)\/(.+)$/i);
+  if (!m) return limpia;
+  const [, owner, repo, rama, ruta] = m;
+  return `https://raw.githubusercontent.com/${owner}/${repo}/${rama}/${ruta}`;
+}
 
 // Mismo orden sugerido de categorías que mesa.html, para que el gestor de
 // menú agrupe los platos de forma prolija (por categoría) en vez de listarlos
@@ -504,7 +635,8 @@ const ICONOS = {
   puerta: '<rect x="6" y="2.5" width="12" height="19" rx="1"/><circle cx="14.3" cy="12" r="0.9" fill="currentColor" stroke="none"/>',
   impresora: '<path d="M6.5 9 V4.5 H17.5 V9"/><rect x="5" y="9" width="14" height="7" rx="1"/><rect x="7.5" y="14.5" width="9" height="6"/>',
   cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>',
-  check: '<path d="M5 13 L9 17 L19 7"/>'
+  check: '<path d="M5 13 L9 17 L19 7"/>',
+  dinero: '<rect x="3" y="6" width="18" height="12" rx="2.4"/><circle cx="12" cy="12" r="2.6"/><path d="M6.3 9 V9.01 M17.7 15 V15.01"/>'
 };
 function ic(nombre, cls) {
   cls = cls || "w-4 h-4";
@@ -526,6 +658,7 @@ const state = {
   platos: [],
   pedidos: [],
   solicitudes: [],
+  pagos: [],
   primerSnapshotSolicitudes: true,
   mesasActivasPrevias: {}, // para avisar solo cuando una mesa RECIÉN se ocupa
   primerSnapshotMesas: true,
@@ -585,6 +718,7 @@ function iniciarSuscripciones() {
   suscribirPedidos();
   suscribirSolicitudes();
   suscribirAjustes();
+  suscribirPagos();
 }
 
 /* ------------------------------------------------------------------
@@ -606,7 +740,7 @@ document.getElementById("formAjustes").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
     await setDoc(rRef("ajustes", "general"), {
-      fotoPortadaUrl: document.getElementById("ajusteFotoPortada").value.trim(),
+      fotoPortadaUrl: corregirUrlGithub(document.getElementById("ajusteFotoPortada").value),
       wifiRed: document.getElementById("ajusteWifiRed").value.trim(),
       wifiClave: document.getElementById("ajusteWifiClave").value.trim(),
       horario: document.getElementById("ajusteHorario").value.trim(),
@@ -908,8 +1042,9 @@ function contenidoDetalleMesa(m) {
     ${propina?.detalle?.comentario ? `<p class="text-xs italic text-jackson-negro/50 mb-3">"${propina.detalle.comentario}"</p>` : ""}
 
     <div class="flex flex-col gap-2">
-      <button data-hacer-cierre="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20 flex items-center justify-center gap-1.5">${ic("recibo", "w-4 h-4")}Hacer cierre (ver / imprimir cuenta)</button>
-      <button data-desocupar="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98]">Mesa desocupada</button>
+      <button data-cobrar-mesa="${m.id}" class="w-full bg-jackson-rojo text-white font-display font-semibold text-sm py-3.5 rounded-xl min-h-[44px] active:scale-[.98] shadow-sm shadow-jackson-rojo/20 flex items-center justify-center gap-1.5">${ic("dinero", "w-4 h-4")}Cobrar y liberar mesa</button>
+      <button data-hacer-cierre="${m.id}" class="w-full border-2 border-jackson-negro/15 font-display font-semibold text-sm py-3 rounded-xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-1.5">${ic("recibo", "w-4 h-4")}Ver / imprimir cuenta</button>
+      <button data-desocupar="${m.id}" class="w-full text-jackson-negro/45 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[40px] active:scale-[.98]">Liberar sin registrar pago</button>
     </div>
     `}
   `;
@@ -927,6 +1062,9 @@ function adjuntarEventosDetalle() {
   });
   document.querySelectorAll("#contenidoModalMesa [data-hacer-cierre]").forEach((btn) => {
     btn.addEventListener("click", () => abrirTicket(btn.dataset.hacerCierre));
+  });
+  document.querySelectorAll("#contenidoModalMesa [data-cobrar-mesa]").forEach((btn) => {
+    btn.addEventListener("click", () => abrirModalPago(btn.dataset.cobrarMesa));
   });
 }
 
@@ -961,6 +1099,25 @@ async function desocuparMesa(mesaId) {
 }
 
 /* ------------------------------------------------------------------
+   Junta los items de todos los pedidos de una sesión de mesa en una
+   sola cuenta (sumando cantidades repetidas) y le pega la categoría
+   de cada plato (Bebidas, Parrillas, etc.), buscándolo en el menú
+   actual — así el tiket, el pago y la caja usan siempre el mismo cálculo.
+------------------------------------------------------------------ */
+function combinarItemsDeSesion(pedidos) {
+  const combinados = {};
+  pedidos.forEach((p) => (p.items || []).forEach((i) => {
+    const clave = i.platoId || i.nombre;
+    if (!combinados[clave]) {
+      const plato = state.platos.find((pl) => pl.id === i.platoId) || state.platos.find((pl) => pl.nombre === i.nombre);
+      combinados[clave] = { nombre: i.nombre, cantidad: 0, precio: i.precio, categoria: plato ? categoriaDe(plato) : "Sin categoría" };
+    }
+    combinados[clave].cantidad += i.cantidad;
+  }));
+  return Object.values(combinados);
+}
+
+/* ------------------------------------------------------------------
    TIKET DE CIERRE — combina todos los pedidos de la sesión en una sola
    cuenta imprimible/descargable (Ctrl+P → "Guardar como PDF" también
    sirve como descarga, sin necesitar una librería aparte).
@@ -971,15 +1128,7 @@ function abrirTicket(mesaId) {
   const pedidos = pedidosDeSesion(mesaId, mesa.sesionActual);
   const solicitudes = solicitudesDeSesion(mesaId, mesa.sesionActual);
   const propina = [...solicitudes].reverse().find((s) => s.tipo === "propina_calificacion");
-
-  // Junta los items de todos los pedidos de la sesión en una sola cuenta
-  const itemsCombinados = {};
-  pedidos.forEach((p) => (p.items || []).forEach((i) => {
-    const clave = i.platoId || i.nombre;
-    if (!itemsCombinados[clave]) itemsCombinados[clave] = { nombre: i.nombre, cantidad: 0, precio: i.precio };
-    itemsCombinados[clave].cantidad += i.cantidad;
-  }));
-  const items = Object.values(itemsCombinados);
+  const items = combinarItemsDeSesion(pedidos);
   const subtotal = pedidos.reduce((a, p) => a + (p.total || 0), 0);
   const fecha = new Date().toLocaleString("es-VE", { dateStyle: "short", timeStyle: "short" });
 
@@ -1008,6 +1157,176 @@ function abrirTicket(mesaId) {
   document.getElementById("modalTicket").classList.remove("hidden");
 }
 document.getElementById("btnImprimirTicket").addEventListener("click", () => window.print());
+
+/* ------------------------------------------------------------------
+   REGISTRAR PAGO — cobra la cuenta (monto en Bs + referencia, y
+   propina opcional), la guarda en "pagos" para la caja del día, y
+   libera la mesa en el mismo movimiento (igual que desocuparMesa).
+------------------------------------------------------------------ */
+function abrirModalPago(mesaId) {
+  const mesa = state.mesas.find((m) => m.id === mesaId);
+  if (!mesa) return;
+  const pedidos = pedidosDeSesion(mesaId, mesa.sesionActual);
+  const total = pedidos.reduce((a, p) => a + (p.total || 0), 0);
+  document.getElementById("formPago").reset();
+  document.getElementById("pagoMesaId").value = mesaId;
+  document.getElementById("pagoMesaNumero").textContent = mesa.numero;
+  document.getElementById("pagoTotalUsd").textContent = fmtMoney(total);
+  actualizarEtiquetaReferenciaPago();
+  document.getElementById("modalPago").classList.remove("hidden");
+}
+
+function actualizarEtiquetaReferenciaPago() {
+  const metodo = document.getElementById("pagoMetodo").value;
+  const esEfectivo = metodo === "efectivo";
+  document.getElementById("pagoReferenciaLabel").textContent = esEfectivo ? "Número de referencia (opcional)" : "Número de referencia";
+  document.getElementById("pagoReferencia").required = !esEfectivo;
+}
+document.getElementById("pagoMetodo").addEventListener("change", actualizarEtiquetaReferenciaPago);
+
+document.getElementById("formPago").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const mesaId = document.getElementById("pagoMesaId").value;
+  const mesa = state.mesas.find((m) => m.id === mesaId);
+  if (!mesa) return;
+
+  const pedidos = pedidosDeSesion(mesaId, mesa.sesionActual);
+  const solicitudes = solicitudesDeSesion(mesaId, mesa.sesionActual);
+  const items = combinarItemsDeSesion(pedidos);
+  const subtotalUsd = pedidos.reduce((a, p) => a + (p.total || 0), 0);
+  const cantidadPlatos = items.filter((i) => i.categoria !== "Bebidas").reduce((a, i) => a + i.cantidad, 0);
+  const cantidadBebidas = items.filter((i) => i.categoria === "Bebidas").reduce((a, i) => a + i.cantidad, 0);
+
+  const metodoPago = document.getElementById("pagoMetodo").value;
+  const montoBs = Number(document.getElementById("pagoMontoBs").value) || 0;
+  const referencia = document.getElementById("pagoReferencia").value.trim();
+  const propinaUsd = Number(document.getElementById("pagoPropinaUsd").value) || 0;
+  const propinaBs = Number(document.getElementById("pagoPropinaBs").value) || 0;
+
+  if (metodoPago !== "efectivo" && !referencia) {
+    mostrarToast("Falta el número de referencia del pago");
+    return;
+  }
+
+  try {
+    const batch = writeBatch(db);
+    const pagoRef = doc(rCol("pagos"));
+    batch.set(pagoRef, {
+      mesaId, mesaNumero: mesa.numero,
+      items: items.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, categoria: i.categoria })),
+      cantidadPlatos, cantidadBebidas,
+      subtotalUsd, montoBs, metodoPago, referencia,
+      propinaUsd, propinaBs,
+      mesero: auth.currentUser?.email || "",
+      fechaLocal: fechaLocalHoy(),
+      timestamp: serverTimestamp()
+    });
+    // Igual que desocuparMesa: deja el historial de pedidos/solicitudes
+    // prolijo y libera la mesa para el próximo cliente.
+    pedidos.forEach((p) => {
+      if (p.estado !== "pagado") batch.update(rRef("pedidos", p.id), { estado: "pagado" });
+    });
+    solicitudes.forEach((s) => {
+      if (s.estado === "pendiente") batch.update(rRef("solicitudes", s.id), { estado: "atendida" });
+    });
+    batch.update(rRef("mesas", mesaId), { activa: false, sesionActual: null });
+    await batch.commit();
+
+    document.getElementById("modalPago").classList.add("hidden");
+    document.getElementById("modalMesa").classList.add("hidden");
+    state.mesaAbiertaId = null;
+    mostrarToast(`Pago registrado — Mesa ${mesa.numero} libre`);
+  } catch (err) {
+    console.error("No se pudo registrar el pago:", err);
+    mostrarToast("No se pudo registrar el pago. Intenta de nuevo.");
+  }
+});
+
+/* ------------------------------------------------------------------
+   CAJA — corte del día: junta los pagos registrados (colección "pagos")
+   del día elegido y muestra platos/bebidas vendidos, propinas y el
+   total generado en dólares y en bolívares.
+------------------------------------------------------------------ */
+function suscribirPagos() {
+  onSnapshot(rCol("pagos"), (snap) => {
+    state.pagos = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+    renderCaja();
+  }, (err) => console.error("Error leyendo pagos:", err));
+}
+
+function renderCaja() {
+  const fechaInput = document.getElementById("cajaFecha");
+  if (fechaInput && !fechaInput.value) fechaInput.value = fechaLocalHoy();
+  const fecha = fechaInput ? fechaInput.value : fechaLocalHoy();
+  const pagosDelDia = state.pagos.filter((p) => p.fechaLocal === fecha);
+
+  const platos = pagosDelDia.reduce((a, p) => a + (p.cantidadPlatos || 0), 0);
+  const bebidas = pagosDelDia.reduce((a, p) => a + (p.cantidadBebidas || 0), 0);
+  const propinaUsd = pagosDelDia.reduce((a, p) => a + (p.propinaUsd || 0), 0);
+  const propinaBs = pagosDelDia.reduce((a, p) => a + (p.propinaBs || 0), 0);
+  const totalUsd = pagosDelDia.reduce((a, p) => a + (p.subtotalUsd || 0), 0);
+  const totalBs = pagosDelDia.reduce((a, p) => a + (p.montoBs || 0), 0);
+
+  document.getElementById("cajaCuentas").textContent = pagosDelDia.length;
+  document.getElementById("cajaPlatos").textContent = platos;
+  document.getElementById("cajaBebidas").textContent = bebidas;
+  document.getElementById("cajaPropinas").textContent = `${fmtMoney(propinaUsd)} + ${fmtBs(propinaBs)}`;
+  document.getElementById("cajaTotalUsd").textContent = fmtMoney(totalUsd);
+  document.getElementById("cajaTotalBs").textContent = fmtBs(totalBs);
+
+  const lista = document.getElementById("listaCaja");
+  if (!pagosDelDia.length) {
+    lista.innerHTML = `<p class="text-sm text-jackson-negro/40 text-center py-8 px-4">Todavía no hay cuentas cobradas y registradas este día.</p>`;
+    return;
+  }
+  lista.innerHTML = pagosDelDia.map((p) => {
+    const hora = p.timestamp?.seconds ? new Date(p.timestamp.seconds * 1000).toLocaleTimeString("es-VE", { hour: "2-digit", minute: "2-digit" }) : "";
+    return `
+    <div class="p-4 flex items-center justify-between gap-3 text-sm">
+      <div class="min-w-0">
+        <p class="font-display font-semibold">Mesa ${p.mesaNumero ?? "?"} <span class="text-jackson-negro/30 font-normal">· ${hora}</span></p>
+        <p class="text-[11px] text-jackson-negro/40 truncate">${METODO_PAGO_LABEL[p.metodoPago] || "Efectivo"}${p.referencia ? " · Ref. " + p.referencia : ""}${p.mesero ? " · " + p.mesero : ""}</p>
+      </div>
+      <div class="text-right shrink-0">
+        <p class="font-display font-bold">${fmtMoney(p.subtotalUsd)}</p>
+        <p class="text-[11px] text-jackson-negro/40">${fmtBs(p.montoBs)}</p>
+      </div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("cajaFecha").addEventListener("change", renderCaja);
+
+document.getElementById("btnImprimirCaja").addEventListener("click", () => {
+  const fecha = document.getElementById("cajaFecha").value || fechaLocalHoy();
+  const pagosDelDia = state.pagos.filter((p) => p.fechaLocal === fecha);
+  const platos = pagosDelDia.reduce((a, p) => a + (p.cantidadPlatos || 0), 0);
+  const bebidas = pagosDelDia.reduce((a, p) => a + (p.cantidadBebidas || 0), 0);
+  const propinaUsd = pagosDelDia.reduce((a, p) => a + (p.propinaUsd || 0), 0);
+  const propinaBs = pagosDelDia.reduce((a, p) => a + (p.propinaBs || 0), 0);
+  const totalUsd = pagosDelDia.reduce((a, p) => a + (p.subtotalUsd || 0), 0);
+  const totalBs = pagosDelDia.reduce((a, p) => a + (p.montoBs || 0), 0);
+  const fechaBonita = new Date(fecha + "T00:00:00").toLocaleDateString("es-VE", { day: "2-digit", month: "long", year: "numeric" });
+
+  document.getElementById("hojaTicket").innerHTML = `
+    <div class="text-center mb-4">
+      <p class="font-heading text-2xl">El Jackson</p>
+      <p class="text-xs text-jackson-negro/50">Corte de caja · ${fechaBonita}</p>
+    </div>
+    <div class="border-t border-dashed border-jackson-negro/30 my-3"></div>
+    <div class="text-sm space-y-1.5 mb-3">
+      <div class="flex justify-between"><span>Cuentas cobradas</span><span>${pagosDelDia.length}</span></div>
+      <div class="flex justify-between"><span>Platos vendidos</span><span>${platos}</span></div>
+      <div class="flex justify-between"><span>Bebidas vendidas</span><span>${bebidas}</span></div>
+      <div class="flex justify-between"><span>Propinas</span><span>${fmtMoney(propinaUsd)} + ${fmtBs(propinaBs)}</span></div>
+    </div>
+    <div class="border-t border-dashed border-jackson-negro/30 my-3"></div>
+    <div class="flex justify-between font-display font-bold text-base mb-1"><span>Total en dólares</span><span>${fmtMoney(totalUsd)}</span></div>
+    <div class="flex justify-between font-display font-bold text-base"><span>Total en bolívares</span><span>${fmtBs(totalBs)}</span></div>
+    <p class="text-center text-[11px] text-jackson-negro/30 mt-5">Generado el ${new Date().toLocaleString("es-VE")}</p>
+  `;
+  document.getElementById("modalTicket").classList.remove("hidden");
+});
 
 /* ------------------------------------------------------------------
    PEDIDOS Y SOLICITUDES (tiempo real, todo el restaurante)
@@ -1047,7 +1366,7 @@ document.querySelectorAll(".ej-tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".ej-tab-btn").forEach((b) => b.classList.remove("ej-tab-activo"));
     btn.classList.add("ej-tab-activo");
-    ["mesas", "menu", "qr", "ajustes"].forEach((t) => document.getElementById("tab" + t[0].toUpperCase() + t.slice(1)).classList.toggle("hidden", t !== btn.dataset.tab));
+    ["mesas", "menu", "qr", "caja", "ajustes"].forEach((t) => document.getElementById("tab" + t[0].toUpperCase() + t.slice(1)).classList.toggle("hidden", t !== btn.dataset.tab));
   });
 });
 
@@ -1154,8 +1473,8 @@ document.getElementById("formPlato").addEventListener("submit", async (e) => {
     descripcion: document.getElementById("platoDescripcion").value.trim(),
     precio: Number(document.getElementById("platoPrecio").value) || 0,
     categoria: document.getElementById("platoCategoria").value.trim(),
-    imagenUrl: document.getElementById("platoImagenUrl").value.trim(),
-    modelo3dUrl: document.getElementById("platoModeloUrl").value.trim(),
+    imagenUrl: corregirUrlGithub(document.getElementById("platoImagenUrl").value),
+    modelo3dUrl: corregirUrlGithub(document.getElementById("platoModeloUrl").value),
     disponible: document.getElementById("platoDisponible").checked,
     recomendado: document.getElementById("platoRecomendado").checked
   };
