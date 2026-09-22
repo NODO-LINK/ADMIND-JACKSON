@@ -473,6 +473,23 @@ const rCol = (...seg) => collection(db, "restaurants", RESTAURANT_ID, ...seg);
 
 const fmtMoney = (n) => "$" + Number(n || 0).toFixed(2);
 
+// Mismo orden sugerido de categorías que mesa.html, para que el gestor de
+// menú agrupe los platos de forma prolija (por categoría) en vez de listarlos
+// todos revueltos.
+const ORDEN_SUGERIDO_CATEGORIAS = ["Entradas", "Parrillas", "Platos fuertes", "Contornos", "Bebidas", "Postres"];
+function categoriaDe(p) { return (p.categoria || "").trim() || "Sin categoría"; }
+function categoriasPresentesMesero(lista) {
+  const vistas = [...new Set(lista.map(categoriaDe))];
+  vistas.sort((a, b) => {
+    const ia = ORDEN_SUGERIDO_CATEGORIAS.indexOf(a), ib = ORDEN_SUGERIDO_CATEGORIAS.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b, "es");
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+  return vistas;
+}
+
 /* ------------------------------------------------------------------
    ICONOS — mismo set vectorial (silueta, un solo color) que mesa.html,
    para que ambas apps se vean con la misma identidad y sin emojis.
@@ -1044,20 +1061,44 @@ function suscribirPlatos() {
   }, (err) => console.error("Error leyendo platos:", err));
 }
 
-function renderListaPlatos() {
-  document.getElementById("listaPlatos").innerHTML = state.platos.map((p) => `
+function tarjetaPlatoMesero(p) {
+  const imagenFallback = `https://placehold.co/200x200/F4F1EF/B0202E?font=playfair-display&text=${encodeURIComponent((p.nombre || "?").slice(0, 12))}`;
+  const imagen = p.imagenUrl || imagenFallback;
+  return `
     <div class="bg-white rounded-2xl p-4 shadow-sm shadow-black/[0.04] ${!p.disponible ? "opacity-50" : ""}">
       <div class="flex justify-between items-start gap-2 mb-1">
-        <p class="font-display font-semibold">${p.nombre}</p>
+        <div class="flex items-start gap-2.5 min-w-0">
+          <img src="${imagen}" alt="${p.nombre || ""}" class="w-12 h-12 rounded-xl object-cover shrink-0 border border-jackson-negro/10" loading="lazy" onerror="this.src='${imagenFallback}'">
+          <p class="font-display font-semibold pt-0.5 truncate">${p.nombre}</p>
+        </div>
         <span class="font-display font-bold text-jackson-rojo text-sm whitespace-nowrap">${fmtMoney(p.precio)}</span>
       </div>
-      <p class="text-[11px] text-jackson-negro/40 mb-2 flex items-center flex-wrap gap-1">${p.categoria || "Sin categoría"} ${p.disponible ? "" : "· No disponible"} ${p.recomendado ? `· ${ic("estrella", "w-2.5 h-2.5")} Recomendado` : ""}</p>
+      <p class="text-[11px] text-jackson-negro/40 mb-2 flex items-center flex-wrap gap-1">${p.disponible ? "" : "No disponible"} ${p.recomendado ? `· ${ic("estrella", "w-2.5 h-2.5")} Recomendado` : ""}</p>
       <p class="text-xs text-jackson-negro/55 mb-3 line-clamp-2">${p.descripcion || ""}</p>
       <div class="flex gap-2">
         <button data-editar-plato="${p.id}" class="flex-1 border-2 border-jackson-negro/10 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px] active:scale-[.97]">Editar</button>
         <button data-toggle-disponible="${p.id}" class="flex-1 font-display font-semibold text-xs py-2.5 rounded-xl min-h-[44px] active:scale-[.97] ${p.disponible ? "bg-jackson-crema text-jackson-negro/70" : "bg-jackson-negro text-white"}">${p.disponible ? "Marcar agotado" : "Reactivar"}</button>
       </div>
-    </div>`).join("") || `<p class="text-sm text-jackson-negro/40 col-span-full py-6 text-center">Todavía no has agregado platos. Crea el primero con "+ Nuevo plato".</p>`;
+    </div>`;
+}
+
+function renderListaPlatos() {
+  if (state.platos.length === 0) {
+    document.getElementById("listaPlatos").innerHTML = `<p class="text-sm text-jackson-negro/40 col-span-full py-6 text-center">Todavía no has agregado platos. Crea el primero con "+ Nuevo plato".</p>`;
+  } else {
+    // Agrupados por categoría (mismo orden sugerido que el menú del cliente),
+    // y dentro de cada categoría ordenados alfabéticamente, para que el
+    // gestor no sea un solo revoltijo de platos sueltos.
+    const categorias = categoriasPresentesMesero(state.platos);
+    document.getElementById("listaPlatos").innerHTML = categorias.map((cat) => {
+      const platosDeCat = state.platos
+        .filter((p) => categoriaDe(p) === cat)
+        .sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es"));
+      return `
+        <h3 class="col-span-full font-display font-bold text-sm text-jackson-negro/70 uppercase tracking-wide mt-2 first:mt-0 pb-1 border-b-2 border-jackson-negro/10">${cat}</h3>
+        ${platosDeCat.map(tarjetaPlatoMesero).join("")}`;
+    }).join("");
+  }
 
   document.querySelectorAll("[data-editar-plato]").forEach((btn) => {
     btn.addEventListener("click", () => abrirModalPlato(state.platos.find((p) => p.id === btn.dataset.editarPlato)));
