@@ -61,7 +61,7 @@
   #avisoSinEstilo h2{ font-size:22px; margin:0 0 12px 0; color:#B0202E; }
   #avisoSinEstilo p{ font-size:16px; line-height:1.5; margin:0 0 22px 0; max-width:340px; }
   #avisoSinEstilo button{
-    background:#B0202E; color:#FFFFFF; border:none; border-radius:10px;
+    background:#B0202E; color:#FFFFFF; border:2px solid #FFFFFF; border-radius:10px;
     padding:14px 28px; font-size:16px; font-weight:bold; cursor:pointer;
   }
   /* Sin doble-tap-zoom / gestos raros en la app en general */
@@ -78,6 +78,16 @@
      se perdería contra el fondo del mismo color. */
   .ej-tab-activo{ background:rgba(255,255,255,.07); color:#B0202E; }
   .ej-cat-activa{ background:#B0202E; color:#fff; }
+  /* Pedido: TODOS los botones deben verse claramente bordeados, para que
+     sea obvio a simple vista qué se puede tocar. Los que ya traen su
+     propio borde de Tailwind (clases "border-...") se dejan tal cual;
+     a los que no traen ninguno se les agrega uno de 2px. Tailwind ya deja
+     listo, para cualquier elemento, "border-color: currentColor" y
+     "border-style: solid" de fábrica — por eso el borde agregado aquí
+     sale automáticamente del mismo color que el texto/ícono de cada
+     botón (blanco sobre fondo rojo o negro, oscuro sobre fondo claro),
+     sin tener que fijar un color a mano botón por botón. */
+  button:not([class*="border-"]){ border-width:2px !important; }
   input[type="radio"], input[type="checkbox"]{ accent-color:#B0202E; }
   .ej-scroll-x::-webkit-scrollbar{ display:none; }
   .ej-scroll-x{ -ms-overflow-style:none; scrollbar-width:none; }
@@ -321,6 +331,7 @@
       <p class="text-[11px] text-white/50 font-body mt-1">Mesa <span id="numeroMesaTxt">–</span></p>
     </div>
     <div class="flex items-center gap-2">
+      <button id="btnAyudaInstrucciones" title="Cómo pedir" class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="ayuda|w-4 h-4"></span></button>
       <button id="btnInfoRestaurante" title="Wifi, horario y redes" class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="info|w-4 h-4"></span></button>
     </div>
   </header>
@@ -408,7 +419,7 @@
          enviado (algo que cobrar). Al tocarlo se invita a calificar y dejar
          propina antes de avisarle al mesero. -->
     <div id="bloqueCuenta" class="hidden mt-6 mb-4">
-      <button id="btnPedirCuenta" class="ej-ripple-btn w-full border-2 border-jackson-negro/15 dark:border-white/20 font-display font-semibold text-sm py-3.5 rounded-2xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition">
+      <button id="btnPedirCuenta" class="ej-ripple-btn w-full border-2 border-jackson-negro/40 dark:border-white/40 font-display font-semibold text-sm py-3.5 rounded-2xl min-h-[44px] active:scale-[.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition">
         <span data-icono="recibo|w-4 h-4"></span><span id="txtBtnPedirCuenta">Pedir la cuenta</span>
       </button>
     </div>
@@ -483,6 +494,45 @@
 </div>
 
 <!-- ============================================================
+     CÓMO PEDIR — guía rápida de 5 pasos (sin personajes, directa).
+     Se muestra sola la primera vez que un celular entra al menú, y
+     se puede volver a abrir en cualquier momento con el botón "?"
+     del encabezado.
+============================================================ -->
+<div id="modalInstrucciones" class="hidden fixed inset-0 z-[66] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-4">
+  <div class="absolute inset-0 bg-black/50 backdrop-blur-[2px] ej-fade-simple" data-cerrar="modalInstrucciones"></div>
+  <div class="relative bg-white dark:bg-[#171717] dark:text-white w-full max-w-sm rounded-3xl p-6 shadow-2xl shadow-black/30 ej-modal-pop max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-display font-bold text-lg">Cómo pedir</h3>
+      <button data-cerrar="modalInstrucciones" class="w-9 h-9 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center active:scale-90"><span data-icono="cerrar|w-4 h-4"></span></button>
+    </div>
+    <ol class="space-y-4 text-sm">
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-7 h-7 rounded-full border-2 border-jackson-rojo text-jackson-rojo flex items-center justify-center font-display font-bold text-xs">1</span>
+        <p class="pt-1 leading-snug"><span data-icono="platos|w-4 h-4" class="inline-block align-[-3px] mr-1 text-jackson-rojo"></span>Elige una categoría y toca un plato para ver su foto, video 3D o detalles.</p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-7 h-7 rounded-full border-2 border-jackson-rojo text-jackson-rojo flex items-center justify-center font-display font-bold text-xs">2</span>
+        <p class="pt-1 leading-snug">Presiona el botón rojo <span class="font-bold">"+"</span> para agregarlo a tu pedido.</p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-7 h-7 rounded-full border-2 border-jackson-rojo text-jackson-rojo flex items-center justify-center font-display font-bold text-xs">3</span>
+        <p class="pt-1 leading-snug"><span data-icono="carrito|w-4 h-4" class="inline-block align-[-3px] mr-1 text-jackson-rojo"></span>En "Mi pedido" (abajo) ajusta cantidades o notas, y presiona "Enviar pedido a cocina".</p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-7 h-7 rounded-full border-2 border-jackson-rojo text-jackson-rojo flex items-center justify-center font-display font-bold text-xs">4</span>
+        <p class="pt-1 leading-snug"><span data-icono="check|w-4 h-4" class="inline-block align-[-3px] mr-1 text-jackson-rojo"></span>Ahí mismo ves el estado: Recibido → En preparación → Listo.</p>
+      </li>
+      <li class="flex gap-3 items-start">
+        <span class="shrink-0 w-7 h-7 rounded-full border-2 border-jackson-rojo text-jackson-rojo flex items-center justify-center font-display font-bold text-xs">5</span>
+        <p class="pt-1 leading-snug"><span data-icono="campana|w-4 h-4" class="inline-block align-[-3px] mr-1 text-jackson-rojo"></span>¿Necesitas algo? Presiona "Llamar" (abajo). Y cuando termines, entra a "Mi pedido" y presiona "Pedir la cuenta".</p>
+      </li>
+    </ol>
+    <button data-cerrar="modalInstrucciones" class="w-full bg-jackson-rojo text-white font-display font-semibold py-3 rounded-xl min-h-[44px] active:scale-[.98] mt-5">Entendido</button>
+  </div>
+</div>
+
+<!-- ============================================================
      PEDIR LA CUENTA — invita a calificar la experiencia y dejar una
      propina informativa antes de avisarle al mesero que quiere pagar.
      Calificar es opcional: el botón siempre envía la solicitud.
@@ -496,7 +546,7 @@
     </div>
     <p class="text-xs text-jackson-negro/50 dark:text-white/50 mb-4 leading-relaxed">Tu opinión es opcional, pero nos ayuda mucho. Al enviar, avisamos a tu mesero para que te traiga la cuenta.</p>
     <div id="estrellasCalificacion" class="flex items-center justify-center gap-2 mb-2"></div>
-    <button type="button" id="btnMostrarExtraCuenta" class="block mx-auto text-[11px] font-display font-semibold text-jackson-rojo mb-1">+ Agregar propina o comentario</button>
+    <button type="button" id="btnMostrarExtraCuenta" class="block mx-auto text-[11px] font-display font-semibold text-jackson-rojo mb-1 px-3 py-1.5 rounded-full">+ Agregar propina o comentario</button>
     <div id="bloqueExtraCuenta" class="hidden">
       <div class="mb-3 mt-3">
         <label class="text-xs font-display font-semibold text-jackson-negro/60 dark:text-white/50">Propina (opcional)</label>
@@ -606,7 +656,8 @@ const ICONOS = {
   telefono: '<rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.3 H13"/>',
   cerrar: '<path d="M6 6 L18 18 M18 6 L6 18"/>',
   volver: '<path d="M15 5 L7 12 L15 19"/>',
-  candado: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11 V7.5 A4 4 0 0 1 16 7.5 V11"/>'
+  candado: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11 V7.5 A4 4 0 0 1 16 7.5 V11"/>',
+  ayuda: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.6 A2.8 2.8 0 1 1 12.7 12.3 C12.1 12.7 11.7 13.1 11.7 14.1"/><circle cx="12" cy="17.3" r="1" fill="currentColor" stroke="none"/>'
 };
 function ic(nombre, cls) {
   cls = cls || "w-4 h-4";
@@ -923,13 +974,14 @@ document.getElementById("btnInfoRestaurante").addEventListener("click", () => {
 ------------------------------------------------------------------ */
 function pedirNombreClienteSiFalta() {
   const guardado = localStorage.getItem("ej_nombre_cliente");
-  if (guardado) { state.nombreCliente = guardado; return; }
+  if (guardado) { state.nombreCliente = guardado; mostrarInstruccionesSiEsPrimeraVez(); return; }
   document.getElementById("modalNombre").classList.remove("hidden");
 }
 function guardarNombreCliente(nombre) {
   state.nombreCliente = nombre;
   localStorage.setItem("ej_nombre_cliente", nombre);
   document.getElementById("modalNombre").classList.add("hidden");
+  mostrarInstruccionesSiEsPrimeraVez();
 }
 document.getElementById("formNombreCliente").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -937,6 +989,22 @@ document.getElementById("formNombreCliente").addEventListener("submit", (e) => {
   guardarNombreCliente(input.value.trim() || "Comensal");
 });
 document.getElementById("btnOmitirNombre").addEventListener("click", () => guardarNombreCliente("Comensal"));
+
+/* ------------------------------------------------------------------
+   "CÓMO PEDIR" — guía de 5 pasos, una sola vez por celular (igual que
+   el nombre, en localStorage). Se muestra justo después del paso de
+   "¿cómo te llamamos?" para no encimar dos ventanas a la vez, y queda
+   siempre disponible desde el botón "?" del encabezado.
+------------------------------------------------------------------ */
+function mostrarInstruccionesSiEsPrimeraVez() {
+  if (localStorage.getItem("ej_instrucciones_vistas")) return;
+  abrirInstrucciones();
+}
+function abrirInstrucciones() {
+  localStorage.setItem("ej_instrucciones_vistas", "1");
+  document.getElementById("modalInstrucciones").classList.remove("hidden");
+}
+document.getElementById("btnAyudaInstrucciones").addEventListener("click", abrirInstrucciones);
 
 /* ------------------------------------------------------------------
    AVISO SONORO/VIBRACIÓN CUANDO EL PLATO ESTÁ LISTO
@@ -1209,7 +1277,7 @@ function renderNavCategorias() {
   const nav = document.getElementById("pillsCategorias");
   const categorias = categoriasPresentes();
   nav.innerHTML = categorias.map((c) => `
-    <button data-cat="${encodeURIComponent(c)}" class="ej-cat-btn ej-ripple-btn shrink-0 px-4 py-2 rounded-full text-xs font-display font-semibold border-2 border-jackson-negro/10 dark:border-white/15 dark:text-white min-h-[36px] flex items-center gap-1.5 ${c === state.categoriaActiva ? "ej-cat-activa border-transparent" : ""}">
+    <button data-cat="${encodeURIComponent(c)}" class="ej-cat-btn ej-ripple-btn shrink-0 px-4 py-2 rounded-full text-xs font-display font-semibold border-2 border-jackson-negro/40 dark:border-white/40 dark:text-white min-h-[36px] flex items-center gap-1.5 ${c === state.categoriaActiva ? "ej-cat-activa border-transparent" : ""}">
       <span>${iconoCategoria(c)}</span><span>${c}</span>
     </button>`).join("");
   nav.querySelectorAll(".ej-cat-btn").forEach((btn) => {
@@ -1379,14 +1447,14 @@ function renderCarrito() {
             <p class="text-xs text-jackson-negro/45 dark:text-white/45">${fmtMoney(it.precio)} c/u</p>
           </div>
           <div class="flex items-center gap-3 shrink-0">
-            <button data-menos="${id}" class="ej-ripple-btn w-8 h-8 rounded-full border-2 border-jackson-negro/15 dark:border-white/20 font-bold active:scale-90 transition">−</button>
+            <button data-menos="${id}" class="ej-ripple-btn w-8 h-8 rounded-full border-2 border-jackson-negro/40 dark:border-white/40 font-bold active:scale-90 transition">−</button>
             <span class="font-display font-semibold w-4 text-center">${it.cantidad}</span>
-            <button data-mas="${id}" class="ej-ripple-btn w-8 h-8 rounded-full border-2 border-jackson-negro/15 dark:border-white/20 font-bold active:scale-90 transition">+</button>
+            <button data-mas="${id}" class="ej-ripple-btn w-8 h-8 rounded-full border-2 border-jackson-negro/40 dark:border-white/40 font-bold active:scale-90 transition">+</button>
           </div>
         </div>
         ${(it.nota || state.notasAbiertas.has(id))
           ? `<input data-nota="${id}" value="${it.nota || ""}" maxlength="80" placeholder="Nota especial (ej: sin cebolla)" class="w-full mt-2 text-xs bg-jackson-crema dark:bg-white/10 rounded-lg px-3 py-2 placeholder:text-jackson-negro/35 dark:placeholder:text-white/35">`
-          : `<button type="button" data-abrir-nota="${id}" class="mt-1.5 text-[11px] font-medium text-jackson-negro/40 dark:text-white/40">+ Agregar nota</button>`}
+          : `<button type="button" data-abrir-nota="${id}" class="mt-1.5 text-[11px] font-medium text-jackson-negro/40 dark:text-white/40 px-2.5 py-1 rounded-full">+ Agregar nota</button>`}
       </div>`).join("")}
   </div>
   <div class="flex items-center justify-between px-1 mt-4 mb-4">
@@ -1479,11 +1547,11 @@ function renderOpcionesPropina() {
   const cont = document.getElementById("opcionesPropina");
   const opciones = [10, 15, 20];
   cont.innerHTML = opciones.map((p) => `
-    <button type="button" data-propina-pct="${p}" class="ej-ripple-btn border-2 rounded-xl py-2.5 text-center active:scale-95 transition ${state.propinaPctSeleccionado === p ? "border-jackson-rojo bg-jackson-rojo/5" : "border-jackson-negro/10 dark:border-white/20"}">
+    <button type="button" data-propina-pct="${p}" class="ej-ripple-btn border-2 rounded-xl py-2.5 text-center active:scale-95 transition ${state.propinaPctSeleccionado === p ? "border-jackson-rojo bg-jackson-rojo/5" : "border-jackson-negro/40 dark:border-white/40"}">
       <span class="block font-display font-bold text-sm">${p}%</span>
       <span class="block text-[9px] text-jackson-negro/40 dark:text-white/40">${fmtMoney(total * p / 100)}</span>
     </button>`).join("") + `
-    <button type="button" data-propina-pct="otra" class="ej-ripple-btn border-2 rounded-xl py-2.5 text-center active:scale-95 transition ${state.propinaPctSeleccionado === "otra" ? "border-jackson-rojo bg-jackson-rojo/5" : "border-jackson-negro/10 dark:border-white/20"}">
+    <button type="button" data-propina-pct="otra" class="ej-ripple-btn border-2 rounded-xl py-2.5 text-center active:scale-95 transition ${state.propinaPctSeleccionado === "otra" ? "border-jackson-rojo bg-jackson-rojo/5" : "border-jackson-negro/40 dark:border-white/40"}">
       <span class="block font-display font-bold text-sm">Otra</span>
       <span class="block text-[9px] text-jackson-negro/40 dark:text-white/40">cantidad</span>
     </button>`;
@@ -1716,7 +1784,7 @@ function renderEstrellasCalificacion() {
     const llena = n <= state.calificacionSeleccionada;
     const delay = llena ? (n - 1) * 45 : 0;
     return `
-    <button type="button" data-estrella="${n}" style="animation-delay:${delay}ms" class="active:scale-90 transition ${llena ? "ej-pop-elastico text-jackson-rojo" : "text-jackson-negro/20 dark:text-white/20"}">${svgEstrella(llena, "w-7 h-7")}</button>`;
+    <button type="button" data-estrella="${n}" style="animation-delay:${delay}ms" class="border-0 active:scale-90 transition ${llena ? "ej-pop-elastico text-jackson-rojo" : "text-jackson-negro/20 dark:text-white/20"}">${svgEstrella(llena, "w-7 h-7")}</button>`;
   }).join("");
   cont.querySelectorAll("[data-estrella]").forEach((btn) => {
     btn.addEventListener("click", () => {
