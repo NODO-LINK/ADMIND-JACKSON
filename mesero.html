@@ -69,12 +69,9 @@
   .ej-shake{ animation: ejShake .4s ease-in-out infinite; }
   .ej-tab-activo{ background:#B0202E !important; color:#fff !important; }
   input[type="radio"], input[type="checkbox"]{ accent-color:#B0202E; }
-  @media print {
-    body *{ visibility:hidden; }
-    #hojaQr, #hojaQr *, #hojaTicket, #hojaTicket *{ visibility:visible; }
-    #hojaQr, #hojaTicket{ position:absolute; top:0; left:0; width:100%; }
-    .ej-no-print{ display:none !important; }
-  }
+  .ej-no-print{ /* solo queda como marcador; la impresión real ahora se hace
+                   en una ventana aparte (ver abrirVentanaImpresion), no
+                   ocultando piezas de esta página */ }
   .ej-mesa-tile{ transition: transform .1s; }
   .ej-mesa-tile:active{ transform: scale(.95); }
   /* "Salón" del plano: una sala rectangular con textura de piso a cuadros,
@@ -1099,6 +1096,64 @@ async function desocuparMesa(mesaId) {
 }
 
 /* ------------------------------------------------------------------
+   IMPRESIÓN — se abre en una PESTAÑA/VENTANA APARTE con su propio
+   Tailwind, en vez del viejo truco de "ocultar todo menos esto" al
+   imprimir la página principal. Ese truco fallaba (hoja en blanco) en
+   varios navegadores de celular al imprimir mesa por mesa. Así el
+   navegador imprime literalmente esa ventana nueva, sin nada más
+   alrededor que ocultar ni que pueda salir mal.
+------------------------------------------------------------------ */
+function abrirVentanaImpresion(tituloPestana, contenidoHtml) {
+  const ventana = window.open("", "_blank");
+  if (!ventana) {
+    mostrarToast("Tu navegador bloqueó la ventana de impresión. Permite las ventanas emergentes para este sitio e inténtalo de nuevo.");
+    return;
+  }
+  ventana.document.open();
+  ventana.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${tituloPestana}</title>
+<script src="https://cdn.tailwindcss.com"><\/script>
+<script>
+  try {
+    tailwind.config = {
+      theme: { extend: {
+        colors: { jackson: { rojo: '#B0202E', rojoOscuro: '#8A1923', negro: '#111111', crema: '#F4F1EF', blanco: '#FFFFFF' } },
+        fontFamily: {
+          heading: ['"Playfair Display"', 'serif'],
+          display: ['"Space Grotesk"', 'sans-serif'],
+          body: ['"Manrope"', 'sans-serif']
+        }
+      } }
+    };
+  } catch (e) {}
+<\/script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  html,body{ background:#FFFFFF; margin:0; }
+  @page{ margin:10mm; }
+</style>
+</head>
+<body class="font-body text-jackson-negro p-6">
+${contenidoHtml}
+</body>
+</html>`);
+  ventana.document.close();
+
+  // Espera a que el Tailwind de la ventana nueva termine de generar los
+  // estilos antes de imprimir (si tarda más de la cuenta, igual se imprime:
+  // mejor con estilos tardíos que no imprimir nada). Se intenta dos veces
+  // porque "load" no siempre dispara a tiempo en navegadores de celular.
+  const intentarImprimir = () => { try { ventana.focus(); ventana.print(); } catch (e) {} };
+  ventana.addEventListener("load", () => setTimeout(intentarImprimir, 450));
+  setTimeout(intentarImprimir, 1600);
+}
+
+/* ------------------------------------------------------------------
    Junta los items de todos los pedidos de una sesión de mesa en una
    sola cuenta (sumando cantidades repetidas) y le pega la categoría
    de cada plato (Bebidas, Parrillas, etc.), buscándolo en el menú
@@ -1156,7 +1211,9 @@ function abrirTicket(mesaId) {
   `;
   document.getElementById("modalTicket").classList.remove("hidden");
 }
-document.getElementById("btnImprimirTicket").addEventListener("click", () => window.print());
+document.getElementById("btnImprimirTicket").addEventListener("click", () => {
+  abrirVentanaImpresion("El Jackson — Cuenta", document.getElementById("hojaTicket").innerHTML);
+});
 
 /* ------------------------------------------------------------------
    REGISTRAR PAGO — cobra la cuenta (monto en Bs + referencia, y
@@ -1597,7 +1654,28 @@ function renderHojaQr() {
   });
 }
 
-document.getElementById("btnImprimirQr").addEventListener("click", () => window.print());
+document.getElementById("btnImprimirQr").addEventListener("click", () => {
+  // Los <canvas> con el QR no se pueden copiar tal cual a la ventana nueva
+  // (su dibujo no viaja con el HTML), así que cada uno se convierte primero
+  // a una imagen (PNG) con su mismo contenido antes de armar la hoja a imprimir.
+  const tarjetas = document.querySelectorAll("#hojaQr > div");
+  const html = [...tarjetas].map((tarjeta) => {
+    const clon = tarjeta.cloneNode(true);
+    const canvasOriginal = tarjeta.querySelector("canvas");
+    const canvasClon = clon.querySelector("canvas");
+    if (canvasOriginal && canvasClon) {
+      const img = document.createElement("img");
+      img.src = canvasOriginal.toDataURL("image/png");
+      img.className = canvasOriginal.className;
+      img.width = canvasOriginal.width;
+      img.height = canvasOriginal.height;
+      canvasClon.replaceWith(img);
+    }
+    clon.querySelector("[data-descargar-qr]")?.remove();
+    return clon.outerHTML;
+  }).join("");
+  abrirVentanaImpresion("El Jackson — Códigos QR", `<div class="grid grid-cols-2 gap-6">${html}</div>`);
+});
 
 /* ------------------------------------------------------------------
    TOAST
