@@ -461,78 +461,6 @@
 </div>
 
 <!-- ============================================================
-     MASCOTA "TENEDOR" — ayuda para quien nunca ha usado un menú
-     digital antes (pensado sobre todo en personas mayores que puedan
-     sentirse perdidas). Se explica sola la primera vez que alguien
-     entra desde este celular, apenas termina de decir su nombre; después
-     se puede volver a abrir cuando quieran tocando al tenedor flotante,
-     que se queda fijo abajo a la derecha en toda la app. -->
-<button id="btnAyudaMascota" title="¿Cómo funciona esta página?" class="ej-ripple-btn ej-pop-elastico fixed z-[42] bottom-20 right-4 w-14 h-14 rounded-full bg-white dark:bg-[#171717] shadow-lg shadow-black/25 border-2 border-jackson-rojo/25 flex items-center justify-center active:scale-90">
-  <svg viewBox="0 0 40 70" class="w-8 h-[52.5px]" aria-hidden="true">
-    <rect x="14" y="30" width="12" height="36" rx="6" fill="#F4F1EF" stroke="#111111" stroke-width="2.5"/>
-    <rect x="6" y="4" width="28" height="24" rx="10" fill="#F4F1EF" stroke="#111111" stroke-width="2.5"/>
-    <rect x="15.5" y="4" width="3" height="15" class="fill-white dark:fill-[#171717]"/>
-    <rect x="21.5" y="4" width="3" height="15" class="fill-white dark:fill-[#171717]"/>
-    <path d="M13 38 C8 38 6 42 7 46" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round"/>
-    <circle cx="7" cy="47" r="2" fill="#F4F1EF" stroke="#111111" stroke-width="2"/>
-    <path d="M27 36 C32 32 34 26 32 22" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round"/>
-    <circle cx="32" cy="21" r="2" fill="#F4F1EF" stroke="#111111" stroke-width="2"/>
-    <circle cx="16.5" cy="41" r="1.7" fill="#111111"/>
-    <circle cx="23.5" cy="41" r="1.7" fill="#111111"/>
-    <circle cx="13.5" cy="44" r="2" fill="#B0202E" opacity=".4"/>
-    <circle cx="26.5" cy="44" r="2" fill="#B0202E" opacity=".4"/>
-    <path d="M16 46 Q20 49.5 24 46" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round"/>
-  </svg>
-</button>
-
-<div id="modalAyuda" class="hidden fixed inset-0 z-[91] flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-4">
-  <div class="absolute inset-0 bg-black/60 backdrop-blur-[2px] ej-fade-simple" data-cerrar="modalAyuda"></div>
-  <div class="relative bg-white dark:bg-[#171717] dark:text-white w-full max-w-sm rounded-3xl p-6 shadow-2xl shadow-black/30 ej-modal-pop max-h-[85vh] overflow-y-auto">
-    <div class="flex items-center justify-between mb-1">
-      <h3 class="font-display font-bold text-lg">¡Hola! Soy Tenedor</h3>
-      <button data-cerrar="modalAyuda" class="w-9 h-9 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center active:scale-90 shrink-0"><span data-icono="cerrar|w-4 h-4"></span></button>
-    </div>
-    <div class="flex justify-center my-3">
-      <svg viewBox="0 0 40 70" class="w-14 h-[92px]" aria-hidden="true">
-        <rect x="14" y="30" width="12" height="36" rx="6" fill="#F4F1EF" stroke="#111111" stroke-width="2.5"/>
-        <rect x="6" y="4" width="28" height="24" rx="10" fill="#F4F1EF" stroke="#111111" stroke-width="2.5"/>
-        <rect x="15.5" y="4" width="3" height="15" class="fill-white dark:fill-[#171717]"/>
-        <rect x="21.5" y="4" width="3" height="15" class="fill-white dark:fill-[#171717]"/>
-        <path d="M13 38 C8 38 6 42 7 46" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round"/>
-        <circle cx="7" cy="47" r="2" fill="#F4F1EF" stroke="#111111" stroke-width="2"/>
-        <path d="M27 36 C32 32 34 26 32 22" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round"/>
-        <circle cx="32" cy="21" r="2" fill="#F4F1EF" stroke="#111111" stroke-width="2"/>
-        <circle cx="16.5" cy="41" r="1.7" fill="#111111"/>
-        <circle cx="23.5" cy="41" r="1.7" fill="#111111"/>
-        <circle cx="13.5" cy="44" r="2" fill="#B0202E" opacity=".4"/>
-        <circle cx="26.5" cy="44" r="2" fill="#B0202E" opacity=".4"/>
-        <path d="M16 46 Q20 49.5 24 46" fill="none" stroke="#111111" stroke-width="2" stroke-linecap="round"/>
-      </svg>
-    </div>
-    <p class="text-sm text-jackson-negro/60 dark:text-white/50 leading-relaxed mb-5 text-center">Te explico rapidito para qué sirve cada cosa aquí. Si se te olvida, toca mi carita —está siempre abajo a la derecha— para volver a leer esto.</p>
-    <div class="space-y-4 text-sm mb-2">
-      <div class="flex gap-3 items-start">
-        <span class="w-10 h-10 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center shrink-0 text-jackson-rojo" data-icono="platos|w-4 h-4"></span>
-        <div><p class="font-display font-semibold">Menú</p><p class="text-jackson-negro/55 dark:text-white/45 leading-snug">Ahí abajo dice "Menú": tócalo para ver los platos con foto y precio. Tocas un plato para agregarlo a tu pedido.</p></div>
-      </div>
-      <div class="flex gap-3 items-start">
-        <span class="w-10 h-10 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center shrink-0 text-jackson-rojo" data-icono="recibo|w-4 h-4"></span>
-        <div><p class="font-display font-semibold">Mi pedido</p><p class="text-jackson-negro/55 dark:text-white/45 leading-snug">Ahí ves lo que ya armaste y lo que ya se mandó a la cocina, y en qué va (recibido, en preparación, listo).</p></div>
-      </div>
-      <div class="flex gap-3 items-start">
-        <span class="w-10 h-10 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center shrink-0 text-jackson-rojo" data-icono="campana|w-4 h-4"></span>
-        <div><p class="font-display font-semibold">Llamar al mesero</p><p class="text-jackson-negro/55 dark:text-white/45 leading-snug">Ese botón rojo de abajo avisa directo al mesero que necesitas algo, sin tener que buscarlo con la mirada.</p></div>
-      </div>
-      <div class="flex gap-3 items-start">
-        <span class="w-10 h-10 rounded-full bg-jackson-crema dark:bg-white/10 flex items-center justify-center shrink-0 text-jackson-rojo" data-icono="candado|w-4 h-4"></span>
-        <div><p class="font-display font-semibold">¿Te pidió un código?</p><p class="text-jackson-negro/55 dark:text-white/45 leading-snug">Es el número que está pegado junto al código QR de tu mesa. Solo confirma que estás sentado ahí, se escribe una sola vez.</p></div>
-      </div>
-    </div>
-    <button data-cerrar="modalAyuda" class="w-full bg-jackson-rojo text-white font-display font-semibold py-3.5 rounded-2xl min-h-[44px] active:scale-[.98]">Entendido, ¡vamos a pedir!</button>
-  </div>
-</div>
-
-<!-- ============================================================
      PEDIR LA CUENTA — invita a calificar la experiencia y dejar una
      propina informativa antes de avisarle al mesero que quiere pagar.
      Calificar es opcional: el botón siempre envía la solicitud.
@@ -907,7 +835,7 @@ function bloquearPorMesaLiberada() {
 
   clearTimeout(transicionTimeout);
   clearTimeout(toastTimeout);
-  ["modalVisor3D", "modalInfo", "modalNombre", "modalCuenta", "modalPropinaInicial", "modalAyuda", "btnAyudaMascota", "pantallaTransicion", "toast", "app", "navInferior", "pantallaCarga", "pantallaError", "pantallaCodigoMesa"]
+  ["modalVisor3D", "modalInfo", "modalNombre", "modalCuenta", "modalPropinaInicial", "pantallaTransicion", "toast", "app", "navInferior", "pantallaCarga", "pantallaError", "pantallaCodigoMesa"]
     .forEach((id) => document.getElementById(id)?.classList.add("hidden"));
 
   pantalla.classList.remove("hidden");
@@ -973,14 +901,13 @@ document.getElementById("btnInfoRestaurante").addEventListener("click", () => {
 ------------------------------------------------------------------ */
 function pedirNombreClienteSiFalta() {
   const guardado = localStorage.getItem("ej_nombre_cliente");
-  if (guardado) { state.nombreCliente = guardado; mostrarAyudaSiEsPrimeraVez(); return; }
+  if (guardado) { state.nombreCliente = guardado; return; }
   document.getElementById("modalNombre").classList.remove("hidden");
 }
 function guardarNombreCliente(nombre) {
   state.nombreCliente = nombre;
   localStorage.setItem("ej_nombre_cliente", nombre);
   document.getElementById("modalNombre").classList.add("hidden");
-  mostrarAyudaSiEsPrimeraVez();
 }
 document.getElementById("formNombreCliente").addEventListener("submit", (e) => {
   e.preventDefault();
@@ -988,25 +915,6 @@ document.getElementById("formNombreCliente").addEventListener("submit", (e) => {
   guardarNombreCliente(input.value.trim() || "Comensal");
 });
 document.getElementById("btnOmitirNombre").addEventListener("click", () => guardarNombreCliente("Comensal"));
-
-/* ------------------------------------------------------------------
-   MASCOTA "TENEDOR" — explicación de la página, pensada para quien
-   nunca ha usado un menú digital (personas mayores, sobre todo). Se
-   muestra sola una sola vez por celular (se guarda en localStorage,
-   no en sessionStorage, para que no vuelva a salir sola ni siquiera
-   en la próxima visita) y se puede reabrir cuando quieran tocando el
-   tenedor flotante, que queda fijo en toda la app.
------------------------------------------------------------------- */
-function mostrarAyudaSiEsPrimeraVez() {
-  let vista = null;
-  try { vista = localStorage.getItem("ej_ayuda_vista"); } catch (e) { /* sin problema */ }
-  if (vista === "1") return;
-  document.getElementById("modalAyuda").classList.remove("hidden");
-  try { localStorage.setItem("ej_ayuda_vista", "1"); } catch (e) { /* sin problema */ }
-}
-document.getElementById("btnAyudaMascota").addEventListener("click", () => {
-  document.getElementById("modalAyuda").classList.remove("hidden");
-});
 
 /* ------------------------------------------------------------------
    AVISO SONORO/VIBRACIÓN CUANDO EL PLATO ESTÁ LISTO
