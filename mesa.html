@@ -1283,7 +1283,11 @@ function renderMenu() {
     return;
   }
 
-  const platos = state.platos.filter((p) => categoriaDe(p) === state.categoriaActiva);
+  // Dentro de cada categoría, primero los más económicos: ayuda a decidir
+  // más rápido y destaca las opciones accesibles antes que las caras.
+  const platos = state.platos
+    .filter((p) => categoriaDe(p) === state.categoriaActiva)
+    .sort((a, b) => (a.precio || 0) - (b.precio || 0));
   cont.innerHTML = platos.map(tarjetaPlato).join("") ||
     `<p class="text-center text-jackson-negro/40 text-sm py-10">No hay platos todavía en "${state.categoriaActiva}".</p>`;
 
