@@ -86,8 +86,24 @@
      sombra u opacidad lo hace con una animación fina, y el toque (escala)
      responde con un rebote elástico en vez de un corte seco. */
   button, a, input, textarea{ transition: background-color .18s ease, border-color .18s ease, color .18s ease, box-shadow .25s ease, opacity .2s ease, transform .32s var(--ej-spring); }
-  @keyframes ejFadeIn{ from{ opacity:0; transform:translateY(10px) scale(.97);} to{ opacity:1; transform:translateY(0) scale(1);} }
-  .ej-fade-in{ animation: ejFadeIn .38s var(--ej-spring-soft); }
+  @keyframes ejFadeIn{ 0%{ opacity:0; transform:translateY(30px) scale(.92);} 100%{ opacity:1; transform:translateY(0) scale(1);} }
+  .ej-fade-in{ animation: ejFadeIn .55s var(--ej-spring-soft); }
+  /* Entrada del encabezado y de la barra inferior: se deslizan desde fuera
+     de la pantalla la primera vez que aparecen, para que arrancar la app
+     se sienta como una revelación y no como que las cosas "aparecen" sin más. */
+  @keyframes ejHeaderBaja{ 0%{ transform:translateY(-120%); opacity:0;} 100%{ transform:translateY(0); opacity:1;} }
+  .ej-header-baja{ animation: ejHeaderBaja .7s var(--ej-spring-soft); }
+  @keyframes ejNavSube{ 0%{ transform:translateY(120%);} 100%{ transform:translateY(0);} }
+  .ej-nav-entra{ animation: ejNavSube .55s var(--ej-spring); }
+  /* Texto con brillo de color en movimiento (efecto "shader"): la marca en
+     la portada cambia de tono sin parar, como un reflejo metálico animado. */
+  .ej-texto-shader{
+    background: linear-gradient(90deg, #B0202E, #F4F1EF, #8A1923, #B0202E, #F4F1EF);
+    background-size: 300% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: ejTextoShader 5s ease-in-out infinite;
+  }
+  @keyframes ejTextoShader{ 0%,100%{ background-position:0% 50%;} 50%{ background-position:100% 50%;} }
   @keyframes ejFadeSimple{ from{ opacity:0; } to{ opacity:1; } }
   .ej-fade-simple{ animation: ejFadeSimple .25s ease; }
   /* Modo oscuro: se activa agregando la clase "dark" al <html>, guardado
@@ -119,8 +135,8 @@
   .ej-confetti-pieza{ position:absolute; top:38%; left:50%; border-radius:2px; animation:ejConfetti 1.15s cubic-bezier(.15,.7,.3,1) forwards; pointer-events:none; }
   /* Aparición escalonada (stagger) para grillas y listas: cada tarjeta entra
      un poquito después que la anterior, con un leve rebote. */
-  @keyframes ejFadeUpStagger{ from{ opacity:0; transform:translateY(16px) scale(.94);} to{ opacity:1; transform:translateY(0) scale(1);} }
-  .ej-stagger{ opacity:0; animation:ejFadeUpStagger .5s var(--ej-spring-soft) forwards; }
+  @keyframes ejFadeUpStagger{ 0%{ opacity:0; transform:translateY(42px) scale(.8) rotate(-4deg);} 55%{ opacity:1; transform:translateY(-6px) scale(1.04) rotate(1.5deg);} 100%{ opacity:1; transform:translateY(0) scale(1) rotate(0);} }
+  .ej-stagger{ opacity:0; animation:ejFadeUpStagger .75s var(--ej-spring) forwards; }
   /* Rebote llamativo del contador del carrito cada vez que sube */
   @keyframes ejBadgeBounce{ 0%{transform:scale(1);} 30%{transform:scale(1.55);} 55%{transform:scale(.82);} 75%{transform:scale(1.15);} 100%{transform:scale(1);} }
   .ej-badge-bounce{ animation: ejBadgeBounce .5s var(--ej-spring); }
@@ -159,14 +175,20 @@
   /* Manchas de color flotando muy despacio detrás de todo, para que el fondo
      se sienta "vivo" incluso sin foto — puramente decorativo, va detrás de
      la capa oscura y muy difuminado, así que nunca estorba la lectura. */
-  #fondoAppOrbes{ position:fixed; inset:0; z-index:-18; overflow:hidden; pointer-events:none; }
-  #fondoAppOrbes span{ position:absolute; border-radius:9999px; filter:blur(70px); opacity:.32; mix-blend-mode:screen; }
-  #fondoAppOrbes span:nth-child(1){ width:280px; height:280px; background:#B0202E; top:-60px; left:-70px; animation: ejFlotar1 15s ease-in-out infinite; }
-  #fondoAppOrbes span:nth-child(2){ width:240px; height:240px; background:#8A1923; bottom:8%; right:-60px; animation: ejFlotar2 19s ease-in-out infinite; }
-  #fondoAppOrbes span:nth-child(3){ width:200px; height:200px; background:#F4F1EF; opacity:.07; top:42%; left:50%; animation: ejFlotar3 23s ease-in-out infinite; }
-  @keyframes ejFlotar1{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(50px,70px);} }
-  @keyframes ejFlotar2{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(-60px,-50px);} }
-  @keyframes ejFlotar3{ 0%,100%{ transform:translate(-50%,0) scale(1);} 50%{ transform:translate(-50%,-35px) scale(1.18);} }
+  /* Fondo tipo "shader": manchas de color grandes, brillantes, moviéndose sin
+     parar y cambiando de tono poco a poco — mucho más notorio que un fondo
+     estático, pero sigue detrás de todo (z-index negativo) para no estorbar
+     la lectura. */
+  #fondoAppOrbes{ position:fixed; inset:0; z-index:-18; overflow:hidden; pointer-events:none; animation: ejHueGira 16s linear infinite; }
+  #fondoAppOrbes span{ position:absolute; border-radius:9999px; filter:blur(85px); opacity:.5; mix-blend-mode:screen; }
+  #fondoAppOrbes span:nth-child(1){ width:320px; height:320px; background:#B0202E; top:-60px; left:-70px; animation: ejFlotar1 12s ease-in-out infinite; }
+  #fondoAppOrbes span:nth-child(2){ width:280px; height:280px; background:#8A1923; bottom:8%; right:-60px; animation: ejFlotar2 15s ease-in-out infinite; }
+  #fondoAppOrbes span:nth-child(3){ width:240px; height:240px; background:#F4F1EF; opacity:.12; top:42%; left:50%; animation: ejFlotar3 18s ease-in-out infinite; }
+  #fondoAppOrbes span:nth-child(4){ width:200px; height:200px; background:#B0202E; opacity:.4; top:65%; left:15%; animation: ejFlotar2 21s ease-in-out infinite reverse; }
+  @keyframes ejFlotar1{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(60px,80px);} }
+  @keyframes ejFlotar2{ 0%,100%{ transform:translate(0,0);} 50%{ transform:translate(-70px,-60px);} }
+  @keyframes ejFlotar3{ 0%,100%{ transform:translate(-50%,0) scale(1);} 50%{ transform:translate(-50%,-40px) scale(1.25);} }
+  @keyframes ejHueGira{ 0%{ filter:hue-rotate(0deg);} 100%{ filter:hue-rotate(360deg);} }
   /* Respeta a quien prefiere menos movimiento en su sistema operativo */
   @media (prefers-reduced-motion: reduce){
     *, *::before, *::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
@@ -221,7 +243,7 @@
      el fondo negro de siempre. -->
 <div id="fondoAppFoto"></div>
 <div id="fondoAppCapa"></div>
-<div id="fondoAppOrbes" aria-hidden="true"><span></span><span></span><span></span></div>
+<div id="fondoAppOrbes" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
 
 <!-- ============================================================
      PANTALLA DE CARGA
@@ -293,7 +315,7 @@
 
   <!-- Encabezado: solo marca + accesos rápidos. La navegación principal vive
        abajo, a un pulgar de distancia (ver barra inferior). -->
-  <header class="sticky top-0 z-30 bg-jackson-negro text-jackson-blanco px-4 py-3 flex items-center justify-between shadow-lg shadow-black/10">
+  <header class="ej-header-baja sticky top-0 z-30 bg-jackson-negro text-jackson-blanco px-4 py-3 flex items-center justify-between shadow-lg shadow-black/10">
     <div class="leading-none">
       <p class="font-heading text-xl">El Jackson</p>
       <p class="text-[11px] text-white/50 font-body mt-1">Mesa <span id="numeroMesaTxt">–</span></p>
@@ -322,12 +344,12 @@
     <div id="capaPortada" class="absolute inset-0 bg-jackson-negro/60"></div>
     <div id="patronPortada" class="absolute inset-0 opacity-[0.07] pointer-events-none" style="background-image:repeating-linear-gradient(135deg, #B0202E 0 2px, transparent 2px 20px);"></div>
     <div class="relative">
-      <p class="font-display text-[11px] tracking-[0.35em] text-white/40 mb-4">RESTAURANTE</p>
-      <h1 class="font-heading text-4xl mb-5">El Jackson</h1>
-      <div class="w-10 h-[3px] bg-jackson-rojo mx-auto mb-6"></div>
-      <span class="inline-block border border-white/20 text-white/80 text-xs font-display font-semibold tracking-widest px-4 py-2 rounded-full mb-7">MESA <span id="numeroMesaPortada">–</span></span>
-      <p class="text-white/50 text-sm mb-9 max-w-xs mx-auto leading-relaxed">Explora el menú en 3D, arma tu pedido y pide lo que necesites sin levantarte de la mesa.</p>
-      <button id="btnVerMenu" class="ej-ripple-btn ej-glow ej-shine w-full max-w-xs mx-auto block bg-jackson-rojo hover:bg-jackson-rojoOscuro text-white font-display font-semibold text-base py-4 rounded-2xl shadow-lg shadow-black/40 active:scale-[.98] transition min-h-[44px]">Ver el menú</button>
+      <p class="ej-stagger font-display text-[11px] tracking-[0.35em] text-white/40 mb-4" style="animation-delay:.05s">RESTAURANTE</p>
+      <h1 class="ej-stagger ej-texto-shader font-heading text-4xl mb-5" style="animation-delay:.18s">El Jackson</h1>
+      <div class="ej-stagger w-10 h-[3px] bg-jackson-rojo mx-auto mb-6" style="animation-delay:.3s"></div>
+      <span class="ej-stagger inline-block border border-white/20 text-white/80 text-xs font-display font-semibold tracking-widest px-4 py-2 rounded-full mb-7" style="animation-delay:.42s">MESA <span id="numeroMesaPortada">–</span></span>
+      <p class="ej-stagger text-white/50 text-sm mb-9 max-w-xs mx-auto leading-relaxed" style="animation-delay:.54s">Explora el menú en 3D, arma tu pedido y pide lo que necesites sin levantarte de la mesa.</p>
+      <button id="btnVerMenu" class="ej-stagger ej-ripple-btn ej-glow ej-shine w-full max-w-xs mx-auto block bg-jackson-rojo hover:bg-jackson-rojoOscuro text-white font-display font-semibold text-base py-4 rounded-2xl shadow-lg shadow-black/40 active:scale-[.98] transition min-h-[44px]" style="animation-delay:.66s">Ver el menú</button>
     </div>
   </section>
 
@@ -407,7 +429,7 @@
     <span data-icono="recibo|w-5 h-5"></span>Mi pedido
     <span id="badgePedidos" class="hidden absolute top-1 right-[24%] bg-jackson-rojo text-white text-[9px] w-4 h-4 rounded-full items-center justify-center">0</span>
   </button>
-  <button id="fabLlamarMesero" class="ej-ripple-btn ej-shine flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] text-[11px] font-display font-semibold bg-jackson-rojo/90 disabled:bg-white/5 disabled:opacity-60 transition">
+  <button id="fabLlamarMesero" class="ej-ripple-btn ej-shine ej-glow flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[56px] text-[11px] font-display font-semibold bg-jackson-rojo/90 disabled:bg-white/5 disabled:opacity-60 transition">
     <span data-icono="campana|w-5 h-5"></span><span id="fabTextoLlamar">Llamar</span>
   </button>
 </nav>
@@ -1207,7 +1229,7 @@ function renderGridCategorias() {
     return;
   }
   grid.innerHTML = categorias.map((c, i) => `
-    <button data-cat-grid="${encodeURIComponent(c)}" style="animation-delay:${i * 55}ms" class="ej-ripple-btn ej-tarjeta-viva ej-stagger aspect-[4/3] rounded-2xl bg-white dark:bg-[#171717] shadow-sm shadow-black/[0.06] flex flex-col items-center justify-center gap-2 active:scale-[.96] transition">
+    <button data-cat-grid="${encodeURIComponent(c)}" style="animation-delay:${i * 70}ms" class="ej-ripple-btn ej-tarjeta-viva ej-stagger ej-shine aspect-[4/3] rounded-2xl bg-white dark:bg-[#171717] shadow-sm shadow-black/[0.06] flex flex-col items-center justify-center gap-2 active:scale-[.96] transition">
       <span class="text-jackson-rojo">${iconoCategoria(c, "w-8 h-8")}</span>
       <span class="font-display font-semibold text-sm text-center px-2">${c}</span>
     </button>`).join("");
@@ -1249,7 +1271,7 @@ function tarjetaPlato(p, i) {
   const imagen = p.imagenUrl || imagenFallback;
 
   return `
-  <div style="animation-delay:${(i || 0) * 55}ms" class="ej-stagger bg-white dark:bg-[#171717] rounded-2xl shadow-sm shadow-black/[0.04] overflow-hidden mb-4 ${!p.disponible ? "opacity-50" : ""}">
+  <div style="animation-delay:${(i || 0) * 70}ms" class="ej-stagger ej-tarjeta-viva bg-white dark:bg-[#171717] rounded-2xl shadow-sm shadow-black/[0.04] overflow-hidden mb-4 ${!p.disponible ? "opacity-50" : ""}">
     <div class="relative aspect-[4/3]">
       <img src="${imagen}" alt="${p.nombre || ""}" class="w-full h-full object-cover" loading="lazy" onerror="this.src='${imagenFallback}'">
       ${p.recomendado ? `<span class="absolute bottom-2 left-2 bg-jackson-rojo text-white text-[10px] font-display font-semibold px-2.5 py-1 rounded-full flex items-center gap-1">${ic("estrella", "w-3 h-3")}Recomendado</span>` : ""}
@@ -1643,7 +1665,14 @@ function cambiarTab(tab) {
   document.getElementById("vistaPortada").classList.add("hidden");
   document.getElementById("vistaMenu").classList.toggle("hidden", tab !== "menu");
   document.getElementById("vistaPedido").classList.toggle("hidden", tab !== "pedido");
-  document.getElementById("navInferior").classList.remove("hidden");
+  // La barra inferior entra deslizándose desde abajo, pero solo la primera
+  // vez que aparece (si ya estaba visible, no se vuelve a animar cada vez
+  // que se cambia de pestaña).
+  const nav = document.getElementById("navInferior");
+  if (nav.classList.contains("hidden")) {
+    nav.classList.remove("hidden");
+    nav.classList.add("ej-nav-entra");
+  }
   // Al entrar a Menú se respeta en qué pantalla se había quedado el cliente
   // (categorías o los platos de una categoría), no se reinicia cada vez.
   if (tab === "menu") {
